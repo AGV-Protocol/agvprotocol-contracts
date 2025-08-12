@@ -64,6 +64,3 @@ $ forge --help
 $ anvil --help
 $ cast --help
 ```
-
-#### Visible PDF
-[📄 View my PDF](AGV%Whitepaper%v1.0%Full%Protocol%RWA%Edition.pdf)
