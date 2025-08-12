@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "openzeppelin-contracts-upgradeable/contracts/token/ERC721/ERC721Upgradeable.sol";
+import "ERC721A/contracts/ERC721A.sol";
+// import "../../lib/ERC721A/contracts/ERC721A.sol";
 import "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/utils/ContextUpgradeable.sol";
@@ -18,7 +19,7 @@ import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
  */
 contract SeedPass is
     Initializable,
-    ERC721Upgradeable,
+    ERC721A,
     UUPSUpgradeable,
     OwnableUpgradeable,
     ERC2981Upgradeable
@@ -55,7 +56,7 @@ contract SeedPass is
         bytes32 initialMerkleRoot,
         SaleConfig memory config
     ) public initializer {
-        __ERC721_init(name, symbol);
+        __ERC721A_init(name, symbol);
         __Ownable_init(owner);
         __UUPSUpgradeable_init();
         __ERC2981_init();
@@ -71,6 +72,7 @@ contract SeedPass is
 
         uint256 currentSupply = totalSupply();
         require(currentSupply + amount <= saleConfig.maxSupply, "Exceeds max supply");
+        // Check if the amount exceeds the user's(msg.sender) maximum per wallet limit
         require(_numberMinted(msg.sender) + amount <= saleConfig.maxPerWallet, "Exceeds wallet limit");
 
         uint256 paymentAmount = 0;
@@ -126,7 +128,7 @@ contract SeedPass is
         public
         view
         virtual
-        override(ERC721Upgradeable, ERC2981Upgradeable)
+        override(ERC721A, ERC2981Upgradeable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
