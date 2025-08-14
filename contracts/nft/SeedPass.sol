@@ -23,15 +23,11 @@ import "openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
  * - Agent Price: 29 USDT
  * - Royalty: 5% via ERC2981
  */
-contract SeedPass is
-    // Initializable,
-    ERC721AUpgradeable,
-    UUPSUpgradeable,
-    OwnableUpgradeable,
-    ERC2981Upgradeable
-{
+// Initializable,
+contract SeedPass is ERC721AUpgradeable, UUPSUpgradeable, OwnableUpgradeable, ERC2981Upgradeable {
     using SafeERC20 for IERC20;
     // --- State Variables ---
+
     uint256 public constant MAX_SUPPLY = 400;
     uint256 public constant MAX_PER_WALLET = 3;
     uint256 public constant PUBLIC_ALLOCATION = 300;
@@ -71,21 +67,9 @@ contract SeedPass is
 
     // ----- Events -----
     event PublicMint(address indexed minter, uint256 quantity, uint256 payment);
-    event WhitelistMint(
-        address indexed minter,
-        uint256 quantity,
-        uint256 payment
-    );
-    event AgentMint(
-        address indexed agent,
-        address indexed recipient,
-        uint256 quantity
-    );
-    event SaleConfigUpdated(
-        uint256 wlStartTime,
-        uint256 wlEndTime,
-        bool active
-    );
+    event WhitelistMint(address indexed minter, uint256 quantity, uint256 payment);
+    event AgentMint(address indexed agent, address indexed recipient, uint256 quantity);
+    event SaleConfigUpdated(uint256 wlStartTime, uint256 wlEndTime, bool active);
     event WhitelistUpdated(bytes32 newRoot);
     event AgentUpdated(address indexed agent, bool authorized);
 
@@ -100,11 +84,7 @@ contract SeedPass is
         bytes32 initialMerkleRoot,
         uint256 wlStartTime,
         uint256 wlEndTime
-    )
-        public
-        initializerERC721A
-        initializer
-    {
+    ) public initializerERC721A initializer {
         __ERC721A_init(name, symbol);
         __Ownable_init(owner);
         __UUPSUpgradeable_init();
@@ -140,19 +120,21 @@ contract SeedPass is
         if (amount == 0) revert InvalidAmount();
         if (amount < PRICE_USDT) revert InsufficientUSDTBalance();
         if (totalSupply() + amount > MAX_SUPPLY) revert ExceedsMaxSupply();
-        if (_numberMinted(msg.sender) + amount > MAX_PER_WALLET)
+        if (_numberMinted(msg.sender) + amount > MAX_PER_WALLET) {
             revert ExceedsWalletLimit();
+        }
 
-        bool isWhitelistPeriod = block.timestamp >= saleConfig.wlStartTime &&
-            block.timestamp <= saleConfig.wlEndTime;
+        bool isWhitelistPeriod = block.timestamp >= saleConfig.wlStartTime && block.timestamp <= saleConfig.wlEndTime;
         bool isPublicPeriod = block.timestamp > saleConfig.wlEndTime;
 
         if (isWhitelistPeriod) {
             // Whitelist sale
-            if (!_verifyWhitelist(msg.sender, merkleProof))
+            if (!_verifyWhitelist(msg.sender, merkleProof)) {
                 revert NotWhitelisted();
-            if (publicMinted + amount > PUBLIC_ALLOCATION)
+            }
+            if (publicMinted + amount > PUBLIC_ALLOCATION) {
                 revert ExceedsPublicAllocation();
+            }
 
             publicMinted += amount;
             uint256 payment = amount * PRICE_USDT;
@@ -162,8 +144,9 @@ contract SeedPass is
             emit WhitelistMint(msg.sender, amount, payment);
         } else if (isPublicPeriod) {
             // Public sale
-            if (publicMinted + amount > PUBLIC_ALLOCATION)
+            if (publicMinted + amount > PUBLIC_ALLOCATION) {
                 revert ExceedsPublicAllocation();
+            }
 
             publicMinted += amount;
             uint256 payment = amount * PRICE_USDT;
@@ -181,10 +164,7 @@ contract SeedPass is
      * @param recipients Array of recipient addresses
      * @param amounts Array of amounts per recipient
      */
-    function agentMint(
-        address[] calldata recipients,
-        uint256[] calldata amounts
-    ) external {
+    function agentMint(address[] calldata recipients, uint256[] calldata amounts) external {
         if (!agentMinters[msg.sender]) revert NotAuthorizedAgent();
         if (recipients.length != amounts.length) revert InvalidConfiguration();
 
@@ -193,10 +173,12 @@ contract SeedPass is
             totalQuantity += amounts[i];
         }
 
-        if (totalSupply() + totalQuantity > MAX_SUPPLY)
+        if (totalSupply() + totalQuantity > MAX_SUPPLY) {
             revert ExceedsMaxSupply();
-        if (reservedMinted + totalQuantity > RESERVED_ALLOCATION)
+        }
+        if (reservedMinted + totalQuantity > RESERVED_ALLOCATION) {
             revert ExceedsReservedAllocation();
+        }
 
         reservedMinted += totalQuantity;
 
@@ -213,16 +195,8 @@ contract SeedPass is
     /**
      * @dev Update sale configuration
      */
-    function setSaleConfig(
-        uint256 wlStartTime,
-        uint256 wlEndTime,
-        bool active
-    ) external onlyOwner {
-        saleConfig = SaleConfig({
-            wlStartTime: wlStartTime,
-            wlEndTime: wlEndTime,
-            saleActive: active
-        });
+    function setSaleConfig(uint256 wlStartTime, uint256 wlEndTime, bool active) external onlyOwner {
+        saleConfig = SaleConfig({wlStartTime: wlStartTime, wlEndTime: wlEndTime, saleActive: active});
         emit SaleConfigUpdated(wlStartTime, wlEndTime, active);
     }
 
@@ -276,9 +250,7 @@ contract SeedPass is
      * @param interfaceId The interface identifier, as specified in ERC-165.
      * @return True if the contract supports the interface, false otherwise.
      */
-    function supportsInterface(
-        bytes4 interfaceId
-    )
+    function supportsInterface(bytes4 interfaceId)
         public
         view
         virtual
@@ -326,16 +298,7 @@ contract SeedPass is
      *
      * @return The base URI as a string.
      */
-    function _baseURI()
-        internal
-        view
-        virtual
-        override
-        returns (string memory)
-    {}
-
-
-
+    function _baseURI() internal view virtual override returns (string memory) {}
 
     // --- Internal Helper Functions ---
 
@@ -346,10 +309,7 @@ contract SeedPass is
      *
      * @param newImplementation The address of the new implementation contract.
      */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
-
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
      * @dev Verify if an address is whitelisted using Merkle proof
@@ -357,10 +317,7 @@ contract SeedPass is
      * @param proof Merkle proof for the whitelist
      * @return True if the address is whitelisted, false otherwise
      */
-    function _verifyWhitelist(
-        address account,
-        bytes32[] calldata proof
-    ) internal view returns (bool) {
+    function _verifyWhitelist(address account, bytes32[] calldata proof) internal view returns (bool) {
         if (whitelistMerkleRoot == bytes32(0)) return false;
         bytes32 leaf = keccak256(abi.encodePacked(account));
         return MerkleProof.verify(proof, whitelistMerkleRoot, leaf);
