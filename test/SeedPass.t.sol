@@ -432,7 +432,7 @@ contract SeedPassTest is Test {
         vm.prank(user1);
         usdt.transfer(user2, 990 * 10 ** 6); // Leave only 10 USDT
 
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.InsufficientUSDTBalance.selector));
+        vm.expectRevert();
         vm.prank(user1);
         seedPass.mint(1, user1Proof);
     }

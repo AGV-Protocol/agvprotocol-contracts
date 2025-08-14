@@ -23,8 +23,13 @@ import "openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
  * - Agent Price: 29 USDT
  * - Royalty: 5% via ERC2981
  */
-// Initializable,
-contract SeedPass is ERC721AUpgradeable, UUPSUpgradeable, OwnableUpgradeable, ERC2981Upgradeable {
+contract SeedPass is
+    // Initializable,
+    ERC721AUpgradeable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    ERC2981Upgradeable
+{
     using SafeERC20 for IERC20;
     // --- State Variables ---
 
@@ -118,7 +123,6 @@ contract SeedPass is ERC721AUpgradeable, UUPSUpgradeable, OwnableUpgradeable, ER
     function mint(uint256 amount, bytes32[] calldata merkleProof) external {
         if (!saleConfig.saleActive) revert SaleNotActive();
         if (amount == 0) revert InvalidAmount();
-        if (amount < PRICE_USDT) revert InsufficientUSDTBalance();
         if (totalSupply() + amount > MAX_SUPPLY) revert ExceedsMaxSupply();
         if (_numberMinted(msg.sender) + amount > MAX_PER_WALLET) {
             revert ExceedsWalletLimit();
