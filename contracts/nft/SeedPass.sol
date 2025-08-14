@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import "ERC721A-Upgradeable/contracts/ERC721AUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/utils/ContextUpgradeable.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -25,7 +24,7 @@ import "openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
  * - Royalty: 5% via ERC2981
  */
 contract SeedPass is
-    Initializable,
+    // Initializable,
     ERC721AUpgradeable,
     UUPSUpgradeable,
     OwnableUpgradeable,
@@ -102,7 +101,7 @@ contract SeedPass is
         uint256 wlEndTime
     )
         public
-        // SaleConfig memory config
+        initializerERC721A
         initializer
     {
         __ERC721A_init(name, symbol);
