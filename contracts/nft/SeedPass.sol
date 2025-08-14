@@ -56,6 +56,7 @@ contract SeedPass is
     mapping(address => bool) public agentMinters;
 
     // --- Errors ---
+    error InsufficientUSDTBalance();
     error ExceedsMaxSupply();
     error ExceedsPublicAllocation();
     error ExceedsReservedAllocation();
@@ -137,6 +138,7 @@ contract SeedPass is
     function mint(uint256 amount, bytes32[] calldata merkleProof) external {
         if (!saleConfig.saleActive) revert SaleNotActive();
         if (amount == 0) revert InvalidAmount();
+        if (amount < PRICE_USDT) revert InsufficientUSDTBalance();
         if (totalSupply() + amount > MAX_SUPPLY) revert ExceedsMaxSupply();
         if (_numberMinted(msg.sender) + amount > MAX_PER_WALLET)
             revert ExceedsWalletLimit();

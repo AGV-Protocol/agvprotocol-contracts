@@ -75,16 +75,26 @@ contract SeedPassTest is Test {
         // user1 and user2 are whitelisted, user3 and nonWhitelisted are not
         bytes32 leaf1 = keccak256(abi.encodePacked(user1));
         bytes32 leaf2 = keccak256(abi.encodePacked(user2));
-        merkleRoot = keccak256(abi.encodePacked(leaf1, leaf2));
-        
-        // Create proofs
-        user1Proof.push(keccak256(abi.encodePacked(user2)));
-        user2Proof.push(keccak256(abi.encodePacked(user1)));
+        // Sort the leaves to ensure a canonical order
+        bytes32 a = leaf1;
+        bytes32 b = leaf2;
+        if (a > b) {
+            bytes32 temp = a;
+            a = b;
+            b = temp;
+        }
 
-        // Deploy implementation
+        // Create the Merkle root from the sorted leaves
+        merkleRoot = keccak256(abi.encodePacked(a, b));
+
+        // The proof for a leaf is the hash of the other leaf
+        user1Proof.push(leaf2);
+        user2Proof.push(leaf1);
+
+
         seedPassImpl = new SeedPass();
 
-        // Prepare initialization data
+        
         bytes memory initData = abi.encodeCall(
             SeedPass.initialize,
             (
@@ -141,7 +151,7 @@ contract SeedPassTest is Test {
     }
 
     function test_CannotInitializeTwice() public {
-        vm.expectRevert("Initializable: contract is already initialized");
+        vm.expectRevert("ERC721A__Initializable: contract is already initialized");
         seedPass.initialize(
             "Test", "TEST", owner, address(usdt), treasury, 
             bytes32(0), wlStartTime, wlEndTime
@@ -151,7 +161,6 @@ contract SeedPassTest is Test {
     // --- Whitelist Mint Tests ---
 
     function test_WhitelistMint_Success() public {
-        // Fast forward to whitelist period
         vm.warp(wlStartTime);
 
         uint256 quantity = 2;
@@ -174,7 +183,7 @@ contract SeedPassTest is Test {
     function test_WhitelistMint_InvalidProof() public {
         vm.warp(wlStartTime);
 
-        vm.expectRevert("Not whitelisted");
+        vm.expectRevert(abi.encodeWithSelector(SeedPass.NotWhitelisted.selector));
         vm.prank(nonWhitelisted);
         seedPass.mint(1, user1Proof); // Wrong proof
     }
@@ -187,7 +196,7 @@ contract SeedPassTest is Test {
         seedPass.mint(3, user1Proof);
 
         // Try to mint 1 more
-        vm.expectRevert("Exceeds wallet limit");
+        vm.expectRevert(abi.encodeWithSelector(SeedPass.ExceedsWalletLimit.selector));
         vm.prank(user1);
         seedPass.mint(1, user1Proof);
     }
@@ -195,7 +204,7 @@ contract SeedPassTest is Test {
     function test_WhitelistMint_BeforeStart() public {
         vm.warp(wlStartTime - 1);
 
-        vm.expectRevert("Public sale not started");
+        vm.expectRevert(abi.encodeWithSelector(SeedPass.PublicSaleNotStarted.selector));
         vm.prank(user1);
         seedPass.mint(1, user1Proof);
     }
@@ -222,7 +231,6 @@ contract SeedPassTest is Test {
     function test_PublicMint_NoProofRequired() public {
         vm.warp(wlEndTime + 1);
 
-        // Non-whitelisted user can mint in public sale
         vm.prank(nonWhitelisted);
         seedPass.mint(1, new bytes32[](0));
 
@@ -259,7 +267,7 @@ contract SeedPassTest is Test {
         recipients[0] = user1;
         quantities[0] = 1;
 
-        vm.expectRevert("Not authorized agent");
+        vm.expectRevert(abi.encodeWithSelector(SeedPass.NotAuthorizedAgent.selector));
         vm.prank(user1);
         seedPass.agentMint(recipients, quantities);
     }
@@ -301,7 +309,7 @@ contract SeedPassTest is Test {
         assertEq(seedPass.totalSupply(), 106);
 
         // Now try to mint way too many
-        vm.expectRevert("Exceeds max supply");
+        vm.expectRevert(abi.encodeWithSelector(SeedPass.ExceedsMaxSupply.selector));
         vm.prank(user3);
         seedPass.mint(300, new bytes32[](0)); // Would exceed 400
     }
@@ -322,7 +330,7 @@ contract SeedPassTest is Test {
     }
 
     function test_SetSaleConfig_OnlyOwner() public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
         vm.prank(user1);
         seedPass.setSaleConfig(wlStartTime, wlEndTime, true);
     }
@@ -374,10 +382,10 @@ contract SeedPassTest is Test {
     // --- View Function Tests ---
 
     function test_GetCurrentPhase() public {
-        // Before whitelist
+        
         assertEq(seedPass.getCurrentPhase(), "UPCOMING");
         
-        // During whitelist
+        
         vm.warp(wlStartTime);
         assertEq(seedPass.getCurrentPhase(), "WHITELIST");
         
@@ -418,7 +426,7 @@ contract SeedPassTest is Test {
     function test_MintZeroAmount() public {
         vm.warp(wlStartTime);
         
-        vm.expectRevert("Amount must be greater than zero");
+        vm.expectRevert(abi.encodeWithSelector(SeedPass.InvalidAmount.selector));
         vm.prank(user1);
         seedPass.mint(0, user1Proof);
     }
@@ -429,25 +437,21 @@ contract SeedPassTest is Test {
         
         vm.warp(wlStartTime);
         
-        vm.expectRevert("Sale not active");
+        vm.expectRevert(abi.encodeWithSelector(SeedPass.SaleNotActive.selector));
         vm.prank(user1);
         seedPass.mint(1, user1Proof);
     }
 
     function test_InsufficientUSDTBalance() public {
         vm.warp(wlStartTime);
-        
-        // Create user with insufficient balance
-        address poorUser = makeAddr("poorUser");
-        usdt.mint(poorUser, 10 * 10**6); // Only 10 USDT
-        
-        vm.prank(poorUser);
-        usdt.approve(address(seedPass), type(uint256).max);
-        
-        // This will fail because user needs 29 USDT but only has 10
-        vm.expectRevert("ERC20: transfer amount exceeds balance");
-        vm.prank(poorUser);
-        seedPass.mint(1, user1Proof); // Assuming poorUser has valid proof
+    
+        // User1 has 1000 USDT, but we will reduce it to 10
+        vm.prank(user1);
+        usdt.transfer(user2, 990 * 10**6); // Leave only 10 USDT
+
+        vm.expectRevert(abi.encodeWithSelector(SeedPass.InsufficientUSDTBalance.selector));
+        vm.prank(user1);
+        seedPass.mint(1, user1Proof);
     }
 
     // --- Upgrade Tests ---
@@ -456,7 +460,7 @@ contract SeedPassTest is Test {
         address newImpl = address(new SeedPass());
         
         // Only owner can upgrade
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
         vm.prank(user1);
         seedPass.upgradeToAndCall(newImpl, "");
         
