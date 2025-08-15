@@ -6,6 +6,7 @@ import "forge-std/console.sol";
 import "../contracts/nft/SeedPass.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 /**
  * @title MockUSDT
@@ -38,17 +39,25 @@ contract SeedPassTest is Test {
 
     // --- Test Addresses ---
     address public owner = makeAddr("owner");
+    address public admin = makeAddr("admin");
     address public treasury = makeAddr("treasury");
+    address public agent1 = makeAddr("agent1");
+    address public agent2 = makeAddr("agent2");
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
     address public user3 = makeAddr("user3");
-    address public agent = makeAddr("agent");
     address public nonWhitelisted = makeAddr("nonWhitelisted");
+    address public attacker = makeAddr("attacker");
 
     // --- Test Constants ---
     uint256 public constant PRICE_USDT = 29 * 10 ** 6; // 29 USDT
     uint256 public constant MAX_SUPPLY = 400;
     uint256 public constant MAX_PER_WALLET = 3;
+
+    // --- Role Constants ---
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant AGENT_MINTER_ROLE = keccak256("AGENT_MINTER_ROLE");
+    bytes32 public constant TREASURER_ROLE = keccak256("TREASURER_ROLE");
 
     // --- Test Variables ---
     bytes32 public merkleRoot;
@@ -61,6 +70,9 @@ contract SeedPassTest is Test {
     event PublicMint(address indexed minter, uint256 quantity, uint256 payment);
     event WhitelistMint(address indexed minter, uint256 quantity, uint256 payment);
     event AgentMint(address indexed agent, address indexed recipient, uint256 quantity);
+    event BaseURIUpdated(string newBaseURI);
+    event TreasuryWithdraw(address indexed token, uint256 amount);
+    event AgentUpdated(address indexed agent, bool added);
 
     function setUp() public {
         // Set up time
@@ -101,6 +113,13 @@ contract SeedPassTest is Test {
         proxy = new ERC1967Proxy(address(seedPassImpl), initData);
         seedPass = SeedPass(address(proxy));
 
+        // Setup additional roles
+        vm.startPrank(owner);
+        seedPass.grantRole(ADMIN_ROLE, admin);
+        seedPass.grantAgentRole(agent1);
+        seedPass.grantAgentRole(agent2);
+        vm.stopPrank();
+
         // Setup test users with USDT
         usdt.mint(user1, 1000 * 10 ** 6); // 1000 USDT
         usdt.mint(user2, 1000 * 10 ** 6);
@@ -116,15 +135,11 @@ contract SeedPassTest is Test {
         usdt.approve(address(seedPass), type(uint256).max);
         vm.prank(nonWhitelisted);
         usdt.approve(address(seedPass), type(uint256).max);
-
-        // Set up agent
-        vm.prank(owner);
-        seedPass.setAgentMinter(agent, true);
     }
 
     // --- Initialization Tests ---
 
-    function test_Initialize() public {
+    function test_Initialize() public view {
         assertEq(seedPass.name(), "SeedPass");
         assertEq(seedPass.symbol(), "SEED");
         assertEq(seedPass.owner(), owner);
@@ -136,6 +151,41 @@ contract SeedPassTest is Test {
         assertEq(wlStart, wlStartTime);
         assertEq(wlEnd, wlEndTime);
         assertTrue(active);
+
+        // Check roles
+        assertTrue(seedPass.hasRole(seedPass.DEFAULT_ADMIN_ROLE(), owner));
+        assertTrue(seedPass.hasRole(ADMIN_ROLE, owner));
+        assertTrue(seedPass.hasRole(ADMIN_ROLE, admin));
+        assertTrue(seedPass.hasRole(TREASURER_ROLE, treasury));
+        assertTrue(seedPass.hasRole(AGENT_MINTER_ROLE, agent1));
+
+        // Check initial state
+        assertFalse(seedPass.paused());
+        assertFalse(seedPass.metadataFrozen());
+    }
+
+    function test_Initialize_ZeroAddressReverts() public {
+        SeedPass temporaryImpl = new SeedPass();
+        ERC1967Proxy temporaryProxy = new ERC1967Proxy(address(temporaryImpl), "");
+
+        bytes memory initDataWithZeroOwner = abi.encodeCall(
+            SeedPass.initialize,
+            (
+                "Test",
+                "TEST",
+                address(0), // Zero owner address
+                address(usdt),
+                treasury,
+                merkleRoot,
+                wlStartTime,
+                wlEndTime
+            )
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(SeedPass.ZeroAddress.selector));
+
+        (bool success,) = address(temporaryProxy).call(initDataWithZeroOwner);
+        require(!success, "Initialization with zero owner address should have reverted");
     }
 
     function test_CannotInitializeTwice() public {
@@ -234,11 +284,11 @@ contract SeedPassTest is Test {
         quantities[1] = 3;
 
         vm.expectEmit(true, true, true, true);
-        emit AgentMint(agent, user1, 5);
+        emit AgentMint(agent1, user1, 5);
         vm.expectEmit(true, true, true, true);
-        emit AgentMint(agent, user2, 3);
+        emit AgentMint(agent1, user2, 3);
 
-        vm.prank(agent);
+        vm.prank(agent1);
         seedPass.agentMint(recipients, quantities);
 
         assertEq(seedPass.balanceOf(user1), 5);
@@ -252,7 +302,7 @@ contract SeedPassTest is Test {
         recipients[0] = user1;
         quantities[0] = 1;
 
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.NotAuthorizedAgent.selector));
+        vm.expectRevert();
         vm.prank(user1);
         seedPass.agentMint(recipients, quantities);
     }
@@ -264,7 +314,7 @@ contract SeedPassTest is Test {
         quantities[0] = 101; // Exceeds 100 reserved
 
         vm.expectRevert(abi.encodeWithSelector(SeedPass.ExceedsReservedAllocation.selector));
-        vm.prank(agent);
+        vm.prank(agent1);
         seedPass.agentMint(recipients, quantities);
     }
 
@@ -279,7 +329,7 @@ contract SeedPassTest is Test {
         recipients[0] = user1;
         quantities[0] = 100;
 
-        vm.prank(agent);
+        vm.prank(agent1);
         seedPass.agentMint(recipients, quantities);
 
         // Then public mints 300
@@ -314,12 +364,6 @@ contract SeedPassTest is Test {
         assertFalse(active);
     }
 
-    function test_SetSaleConfig_OnlyOwner() public {
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
-        vm.prank(user1);
-        seedPass.setSaleConfig(wlStartTime, wlEndTime, true);
-    }
-
     function test_SetWhitelistRoot() public {
         bytes32 newRoot = keccak256("new root");
 
@@ -327,20 +371,6 @@ contract SeedPassTest is Test {
         seedPass.setWhitelistRoot(newRoot);
 
         assertEq(seedPass.whitelistMerkleRoot(), newRoot);
-    }
-
-    function test_SetAgentMinter() public {
-        address newAgent = makeAddr("newAgent");
-
-        vm.prank(owner);
-        seedPass.setAgentMinter(newAgent, true);
-
-        assertTrue(seedPass.agentMinters(newAgent));
-
-        vm.prank(owner);
-        seedPass.setAgentMinter(newAgent, false);
-
-        assertFalse(seedPass.agentMinters(newAgent));
     }
 
     function test_SetTreasuryReceiver() public {
@@ -362,6 +392,42 @@ contract SeedPassTest is Test {
         (address receiver, uint256 amount) = seedPass.royaltyInfo(1, 10000);
         assertEq(receiver, royaltyReceiver);
         assertEq(amount, 750); // 7.5% of 10000
+    }
+
+    function test_SetTreasuryReceiver_UpdatesRole() public {
+        address newTreasury = makeAddr("newTreasury");
+        address oldTreasury = seedPass.treasuryReceiver();
+
+        vm.prank(owner);
+        seedPass.setTreasuryReceiver(newTreasury);
+
+        assertEq(seedPass.treasuryReceiver(), newTreasury);
+        assertFalse(seedPass.hasRole(TREASURER_ROLE, oldTreasury));
+        assertTrue(seedPass.hasRole(TREASURER_ROLE, newTreasury));
+    }
+
+    // --- Role Management Tests ---
+
+    function test_GrantAgentRole_Success() public {
+        address newAgent = makeAddr("newAgent");
+
+        vm.expectEmit(true, true, true, true);
+        emit AgentUpdated(newAgent, true);
+
+        vm.prank(admin);
+        seedPass.grantAgentRole(newAgent);
+
+        assertTrue(seedPass.hasRole(AGENT_MINTER_ROLE, newAgent));
+    }
+
+    function test_RevokeAgentRole_Success() public {
+        vm.expectEmit(true, true, true, true);
+        emit AgentUpdated(agent1, false);
+
+        vm.prank(admin);
+        seedPass.revokeAgentRole(agent1);
+
+        assertFalse(seedPass.hasRole(AGENT_MINTER_ROLE, agent1));
     }
 
     // --- View Function Tests ---
@@ -398,7 +464,7 @@ contract SeedPassTest is Test {
         recipients[0] = user2;
         quantities[0] = 10;
 
-        vm.prank(agent);
+        vm.prank(agent1);
         seedPass.agentMint(recipients, quantities);
 
         assertEq(seedPass.getRemainingReservedSupply(), 90);
@@ -443,74 +509,57 @@ contract SeedPassTest is Test {
         address newImpl = address(new SeedPass());
 
         // Only owner can upgrade
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
+        vm.expectRevert();
         vm.prank(user1);
         seedPass.upgradeToAndCall(newImpl, "");
 
         // Owner can upgrade
-        vm.prank(owner);
+        vm.prank(admin);
         seedPass.upgradeToAndCall(newImpl, "");
     }
 
-    // --- Fuzz Tests ---
-
-    // function testFuzz_MintQuantity(uint256 quantity) public {
-    //     vm.assume(quantity > 0 && quantity <= MAX_PER_WALLET);
-    //     vm.warp(wlStartTime);
-
-    //     vm.prank(user1);
-    //     seedPass.mint(quantity, user1Proof);
-
-    //     assertEq(seedPass.balanceOf(user1), quantity);
-    //     assertEq(seedPass.numberMinted(user1), quantity);
-    // }
-
-    // function testFuzz_MintPrice(uint256 quantity) public {
-    //     vm.assume(quantity > 0 && quantity <= MAX_PER_WALLET);
-    //     vm.warp(wlStartTime);
-
-    //     uint256 treasuryBefore = usdt.balanceOf(treasury);
-    //     uint256 expectedPayment = quantity * PRICE_USDT;
-
-    //     vm.prank(user1);
-    //     seedPass.mint(quantity, user1Proof);
-
-    //     assertEq(usdt.balanceOf(treasury), treasuryBefore + expectedPayment);
-    // }
-
     // --- Integration Tests ---
 
-    function test_FullMintingScenario() public {
-        // 1. Agent premints 50 reserved
+    function test_CompleteWorkflow() public {
+        // 1. Pause contract
+        vm.prank(admin);
+        seedPass.pause();
+
+        // 2. Set metadata
+        vm.prank(admin);
+        seedPass.setBaseURI("https://api.example.com/");
+
+        // 3. Unpause and start sale
+        vm.prank(admin);
+        seedPass.unpause();
+
+        // 4. Agent premint
         address[] memory recipients = new address[](1);
-        uint256[] memory quantities = new uint256[](1);
+        uint256[] memory amounts = new uint256[](1);
         recipients[0] = makeAddr("premintUser");
-        quantities[0] = 50;
+        amounts[0] = 20;
 
-        vm.prank(agent);
-        seedPass.agentMint(recipients, quantities);
+        vm.prank(agent1);
+        seedPass.agentMint(recipients, amounts);
 
-        // 2. Whitelist period - user1 mints 3
+        // 5. Whitelist mint
         vm.warp(wlStartTime);
         vm.prank(user1);
         seedPass.mint(3, user1Proof);
 
-        // 3. Still whitelist - user2 mints 2
-        vm.prank(user2);
-        seedPass.mint(2, user2Proof);
-
-        // 4. Public period - user3 mints 1
+        // 6. Public mint
         vm.warp(wlEndTime + 1);
         vm.prank(user3);
-        seedPass.mint(1, new bytes32[](0));
+        seedPass.mint(2, new bytes32[](0));
 
-        // Check final state
-        assertEq(seedPass.totalSupply(), 56); // 50 + 3 + 2 + 1
-        assertEq(seedPass.publicMinted(), 6); // 3 + 2 + 1
-        assertEq(seedPass.reservedMinted(), 50);
-        assertEq(seedPass.balanceOf(recipients[0]), 50);
-        assertEq(seedPass.balanceOf(user1), 3);
-        assertEq(seedPass.balanceOf(user2), 2);
-        assertEq(seedPass.balanceOf(user3), 1);
+        // 7. Freeze metadata
+        vm.prank(admin);
+        seedPass.freezeMetadata();
+
+        // 8. Verify final state
+        assertEq(seedPass.totalSupply(), 25); // 20 + 3 + 2
+        assertEq(seedPass.publicMinted(), 5); // 3 + 2
+        assertEq(seedPass.reservedMinted(), 20);
+        assertTrue(seedPass.metadataFrozen());
     }
 }

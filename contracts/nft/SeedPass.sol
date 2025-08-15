@@ -10,6 +10,11 @@ import "openzeppelin-contracts-upgradeable/contracts/token/common/ERC2981Upgrade
 import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
 
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+
+import "openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+
 /**
  * @title SeedPass
  * @dev ERC721A NFT contract with UUPS upgradeability, ERC2981 royalties, and USDT payments
@@ -24,13 +29,21 @@ import "openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
  * - Royalty: 5% via ERC2981
  */
 contract SeedPass is
-    // Initializable,
     ERC721AUpgradeable,
     UUPSUpgradeable,
     OwnableUpgradeable,
-    ERC2981Upgradeable
+    ERC2981Upgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable
 {
     using SafeERC20 for IERC20;
+
+    //  ROLE CONSTANTS:
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant AGENT_MINTER_ROLE = keccak256("AGENT_MINTER_ROLE");
+    bytes32 public constant TREASURER_ROLE = keccak256("TREASURER_ROLE");
+
     // --- State Variables ---
 
     uint256 public constant MAX_SUPPLY = 400;
@@ -39,6 +52,9 @@ contract SeedPass is
     uint256 public constant RESERVED_ALLOCATION = 100;
     uint256 public constant PRICE_USDT = 29 * 10 ** 6; // 29 USDT (6 decimals)
     uint96 public constant ROYALTY_BPS = 500; // 5%
+
+    bool public metadataFrozen = false;
+    string private _baseTokenURI;
 
     struct SaleConfig {
         uint256 wlStartTime; // Start time for whitelisted sale
@@ -54,8 +70,6 @@ contract SeedPass is
     uint256 public publicMinted;
     uint256 public reservedMinted;
 
-    mapping(address => bool) public agentMinters;
-
     // --- Errors ---
     error InsufficientUSDTBalance();
     error ExceedsMaxSupply();
@@ -69,6 +83,9 @@ contract SeedPass is
     error WhitelistSaleEnded();
     error NotAuthorizedAgent();
     error InvalidConfiguration();
+    error ExceedsMaxPerTx();
+    error MetadataFrozen();
+    error ZeroAddress();
 
     // ----- Events -----
     event PublicMint(address indexed minter, uint256 quantity, uint256 payment);
@@ -77,6 +94,9 @@ contract SeedPass is
     event SaleConfigUpdated(uint256 wlStartTime, uint256 wlEndTime, bool active);
     event WhitelistUpdated(bytes32 newRoot);
     event AgentUpdated(address indexed agent, bool authorized);
+    event MetadataFrozened();
+    event BaseURIUpdated(string newBaseURI);
+    event TreasuryWithdraw(address indexed token, uint256 amount);
 
     // --- Initialization ---
 
@@ -94,10 +114,18 @@ contract SeedPass is
         __Ownable_init(owner);
         __UUPSUpgradeable_init();
         __ERC2981_init();
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        __Pausable_init();
 
-        if (usdtAddress == address(0) || treasury == address(0)) {
-            revert InvalidConfiguration();
-        }
+        if (usdtAddress == address(0)) revert ZeroAddress();
+        if (treasury == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
+
+        // Setup roles
+        _grantRole(DEFAULT_ADMIN_ROLE, owner);
+        _grantRole(ADMIN_ROLE, owner);
+        _grantRole(TREASURER_ROLE, treasury);
 
         usdtToken = IERC20(usdtAddress);
         treasuryReceiver = treasury;
@@ -106,7 +134,7 @@ contract SeedPass is
         saleConfig = SaleConfig({
             wlStartTime: wlStartTime,
             wlEndTime: wlEndTime,
-            saleActive: true // Sale starts active // @audit should it start as active or inactive?
+            saleActive: true // Sale starts active
         });
 
         // Set default royalty to treasury at 5%
@@ -120,7 +148,7 @@ contract SeedPass is
      * @param amount Number of tokens to mint
      * @param merkleProof Merkle proof for whitelist (empty for public)
      */
-    function mint(uint256 amount, bytes32[] calldata merkleProof) external {
+    function mint(uint256 amount, bytes32[] calldata merkleProof) external nonReentrant whenNotPaused {
         if (!saleConfig.saleActive) revert SaleNotActive();
         if (amount == 0) revert InvalidAmount();
         if (totalSupply() + amount > MAX_SUPPLY) revert ExceedsMaxSupply();
@@ -168,8 +196,12 @@ contract SeedPass is
      * @param recipients Array of recipient addresses
      * @param amounts Array of amounts per recipient
      */
-    function agentMint(address[] calldata recipients, uint256[] calldata amounts) external {
-        if (!agentMinters[msg.sender]) revert NotAuthorizedAgent();
+    function agentMint(address[] calldata recipients, uint256[] calldata amounts)
+        external
+        onlyRole(AGENT_MINTER_ROLE)
+        nonReentrant
+        whenNotPaused
+    {
         if (recipients.length != amounts.length) revert InvalidConfiguration();
 
         uint256 totalQuantity = 0;
@@ -199,7 +231,7 @@ contract SeedPass is
     /**
      * @dev Update sale configuration
      */
-    function setSaleConfig(uint256 wlStartTime, uint256 wlEndTime, bool active) external onlyOwner {
+    function setSaleConfig(uint256 wlStartTime, uint256 wlEndTime, bool active) external onlyRole(ADMIN_ROLE) {
         saleConfig = SaleConfig({wlStartTime: wlStartTime, wlEndTime: wlEndTime, saleActive: active});
         emit SaleConfigUpdated(wlStartTime, wlEndTime, active);
     }
@@ -207,7 +239,7 @@ contract SeedPass is
     /**
      * @dev Update whitelist merkle root
      */
-    function setWhitelistRoot(bytes32 newRoot) external onlyOwner {
+    function setWhitelistRoot(bytes32 newRoot) external onlyRole(ADMIN_ROLE) {
         whitelistMerkleRoot = newRoot;
         emit WhitelistUpdated(newRoot);
     }
@@ -215,32 +247,109 @@ contract SeedPass is
     /**
      * @dev Authorize/deauthorize agent minters
      */
-    function setAgentMinter(address agent, bool authorized) external onlyOwner {
-        agentMinters[agent] = authorized;
-        emit AgentUpdated(agent, authorized);
+    function grantAgentRole(address agent) external onlyRole(ADMIN_ROLE) {
+        if (agent == address(0)) revert ZeroAddress();
+        _grantRole(AGENT_MINTER_ROLE, agent);
+        emit AgentUpdated(agent, true);
+    }
+
+    /**
+     * @dev Revoke agent minter role
+     * Requirements:
+     * - Caller must have ADMIN_ROLE
+     * - Agent must be currently authorized
+     */
+    function revokeAgentRole(address agent) external onlyRole(ADMIN_ROLE) {
+        _revokeRole(AGENT_MINTER_ROLE, agent);
+        emit AgentUpdated(agent, false);
     }
 
     /**
      * @dev Update treasury receiver (address where USDT payments for NFT go)
      */
-    function setTreasuryReceiver(address newTreasury) external onlyOwner {
-        if (newTreasury == address(0)) revert InvalidConfiguration();
+    function setTreasuryReceiver(address newTreasury) external onlyRole(ADMIN_ROLE) {
+        if (newTreasury == address(0)) revert ZeroAddress();
+
+        revokeRole(TREASURER_ROLE, treasuryReceiver);
+        _grantRole(TREASURER_ROLE, newTreasury);
+
         treasuryReceiver = newTreasury;
     }
 
     /**
      * @dev Update royalty information
      */
-    function setRoyaltyInfo(address receiver, uint96 fee) external onlyOwner {
+    function setRoyaltyInfo(address receiver, uint96 fee) external onlyRole(ADMIN_ROLE) {
+        if (receiver == address(0)) revert ZeroAddress();
         _setDefaultRoyalty(receiver, fee);
     }
 
     /**
      * @dev Set base URI for metadata
      */
-    // function setBaseURI(string calldata baseURI) external onlyOwner {
-    //     _setBaseURI(baseURI);
-    // }
+    function setBaseURI(string calldata newBaseURI) external onlyRole(ADMIN_ROLE) {
+        if (metadataFrozen) revert MetadataFrozen();
+        _baseTokenURI = newBaseURI;
+        emit BaseURIUpdated(newBaseURI);
+    }
+
+    function freezeMetadata() external onlyRole(ADMIN_ROLE) {
+        metadataFrozen = true;
+        emit MetadataFrozened();
+    }
+
+    /**
+     * @dev Withdraw treasury funds (USDT or native token)
+     * @param token Address of the token to withdraw (0x for native token)
+     * Requirements:
+     * - Caller must have TREASURER_ROLE
+     * - Contract must have a balance of the specified token
+     */
+    function withdrawTreasury(address token) external onlyRole(TREASURER_ROLE) {
+        if (token == address(0)) {
+            // Withdraw native token
+            uint256 balance = address(this).balance;
+            if (balance > 0) {
+                (bool success,) = payable(treasuryReceiver).call{value: balance}("");
+                require(success, "Transfer failed");
+                emit TreasuryWithdraw(address(0), balance);
+            }
+        } else {
+            // Withdraw ERC20 token
+            IERC20 tokenContract = IERC20(token);
+            uint256 balance = tokenContract.balanceOf(address(this));
+            if (balance > 0) {
+                tokenContract.safeTransfer(treasuryReceiver, balance);
+                emit TreasuryWithdraw(token, balance);
+            }
+        }
+    }
+
+    /**
+     * @dev Pause the contract (disables minting and transfers)
+     * Requirements:
+     * - Caller must have ADMIN_ROLE
+     */
+    function pause() external onlyRole(ADMIN_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @dev Unpause the contract (enables minting and transfers)
+     * Requirements:
+     * - Caller must have ADMIN_ROLE
+     */
+    function unpause() external onlyRole(ADMIN_ROLE) {
+        _unpause();
+    }
+
+    /**
+     * @dev Override _startTokenId to start token IDs from 1 instead of 0
+     * This is required by ERC721A to ensure correct token ID management.
+     */
+    function _startTokenId() internal pure override returns (uint256) {
+        return 1; // Start token IDs from 1 instead of 0
+    }
 
     // -------- View Functions --------
 
@@ -258,7 +367,7 @@ contract SeedPass is
         public
         view
         virtual
-        override(ERC721AUpgradeable, ERC2981Upgradeable)
+        override(ERC721AUpgradeable, AccessControlUpgradeable, ERC2981Upgradeable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
@@ -302,7 +411,9 @@ contract SeedPass is
      *
      * @return The base URI as a string.
      */
-    function _baseURI() internal view virtual override returns (string memory) {}
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseTokenURI;
+    }
 
     // --- Internal Helper Functions ---
 
@@ -313,7 +424,9 @@ contract SeedPass is
      *
      * @param newImplementation The address of the new implementation contract.
      */
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {
+        if (newImplementation == address(0)) revert ZeroAddress();
+    }
 
     /**
      * @dev Verify if an address is whitelisted using Merkle proof
@@ -326,4 +439,8 @@ contract SeedPass is
         bytes32 leaf = keccak256(abi.encodePacked(account));
         return MerkleProof.verify(proof, whitelistMerkleRoot, leaf);
     }
+
+    // --- Upgrade Gap ---
+    // This is used to reserve space for future upgrades without breaking existing storage layout.
+    uint256[45] private __gap;
 }
