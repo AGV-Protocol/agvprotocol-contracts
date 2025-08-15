@@ -39,28 +39,26 @@ contract SeedPass is
 {
     using SafeERC20 for IERC20;
 
-    //  ROLE CONSTANTS:
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant AGENT_MINTER_ROLE = keccak256("AGENT_MINTER_ROLE");
-    bytes32 public constant TREASURER_ROLE = keccak256("TREASURER_ROLE");
+    // --- Constants ---
+    bytes32 internal constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 internal constant AGENT_MINTER_ROLE = keccak256("AGENT_MINTER_ROLE");
+    bytes32 internal constant TREASURER_ROLE = keccak256("TREASURER_ROLE");
+
+    uint256 internal constant MAX_SUPPLY = 400;
+    uint256 internal constant MAX_PER_WALLET = 3;
+    uint256 internal constant PUBLIC_ALLOCATION = 300;
+    uint256 internal constant RESERVED_ALLOCATION = 100;
+    uint256 internal constant PRICE_USDT = 29 * 1e6;
+    uint96 internal constant ROYALTY_BPS = 500;
+
+    // --- Sale Configuration ---
+    struct SaleConfig {
+        uint256 wlStartTime;
+        uint256 wlEndTime;
+        bool saleActive;
+    }
 
     // --- State Variables ---
-
-    uint256 public constant MAX_SUPPLY = 400;
-    uint256 public constant MAX_PER_WALLET = 3;
-    uint256 public constant PUBLIC_ALLOCATION = 300;
-    uint256 public constant RESERVED_ALLOCATION = 100;
-    uint256 public constant PRICE_USDT = 29 * 10 ** 6; // 29 USDT (6 decimals)
-    uint96 public constant ROYALTY_BPS = 500; // 5%
-
-    bool public metadataFrozen = false;
-    string private _baseTokenURI;
-
-    struct SaleConfig {
-        uint256 wlStartTime; // Start time for whitelisted sale
-        uint256 wlEndTime; // End time for whitelisted sale
-        bool saleActive; // Indicates if the sale is active
-    }
 
     SaleConfig public saleConfig;
     IERC20 public usdtToken;
@@ -69,6 +67,9 @@ contract SeedPass is
 
     uint256 public publicMinted;
     uint256 public reservedMinted;
+
+    bool public metadataFrozen;
+    string private _baseTokenURI;
 
     // --- Errors ---
     error InsufficientUSDTBalance();
