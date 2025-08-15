@@ -40,7 +40,7 @@ contract SeedPass is
     uint256 internal constant PRICE_USDT = 29 * 1e6;
     uint96 internal constant ROYALTY_BPS = 500;
 
-    // --- Packed State Variables ---
+    // --- State Variables ---
     struct Config {
         uint64 wlStartTime;
         uint64 wlEndTime;
@@ -55,20 +55,6 @@ contract SeedPass is
     bytes32 public whitelistMerkleRoot;
     address public treasuryReceiver;
     string private _baseTokenURI;
-
-    // --- Errors ---
-    error ExceedsMaxSupply();
-    error ExceedsPublicAllocation();
-    error ExceedsReservedAllocation();
-    error ExceedsWalletLimit();
-    error InvalidAmount();
-    error SaleNotActive();
-    error NotWhitelisted();
-    error PublicSaleNotStarted();
-    error NotAuthorizedAgent();
-    error InvalidConfiguration();
-    error MetadataFrozen();
-    error ZeroAddress();
 
     // ----- Events -----
     event PublicMint(address indexed minter, uint256 quantity, uint256 payment);
