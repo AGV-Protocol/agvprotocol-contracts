@@ -72,7 +72,7 @@ contract SeedPassTest is Test {
     event AgentMint(address indexed agent, address indexed recipient, uint256 quantity);
     event BaseURIUpdated(string newBaseURI);
     event TreasuryWithdraw(address indexed token, uint256 amount);
-    event AgentUpdated(address indexed agent, bool added);
+    event AgentUpdated(address indexed agent, bool authorized);
 
     function setUp() public {
         // Set up time
@@ -147,10 +147,15 @@ contract SeedPassTest is Test {
         assertEq(seedPass.treasuryReceiver(), treasury);
         assertEq(seedPass.whitelistMerkleRoot(), merkleRoot);
 
-        (uint256 wlStart, uint256 wlEnd, bool active) = seedPass.saleConfig();
+        // Updated to use the new config struct
+        (uint64 wlStart, uint64 wlEnd, bool active, bool metadataFrozen, uint16 publicMinted, uint16 reservedMinted) =
+            seedPass.config();
         assertEq(wlStart, wlStartTime);
         assertEq(wlEnd, wlEndTime);
         assertTrue(active);
+        assertFalse(metadataFrozen);
+        assertEq(publicMinted, 0);
+        assertEq(reservedMinted, 0);
 
         // Check roles
         assertTrue(seedPass.hasRole(seedPass.DEFAULT_ADMIN_ROLE(), owner));
@@ -161,12 +166,10 @@ contract SeedPassTest is Test {
 
         // Check initial state
         assertFalse(seedPass.paused());
-        assertFalse(seedPass.metadataFrozen());
     }
 
     function test_Initialize_ZeroAddressReverts() public {
         SeedPass temporaryImpl = new SeedPass();
-        ERC1967Proxy temporaryProxy = new ERC1967Proxy(address(temporaryImpl), "");
 
         bytes memory initDataWithZeroOwner = abi.encodeCall(
             SeedPass.initialize,
@@ -182,10 +185,8 @@ contract SeedPassTest is Test {
             )
         );
 
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.ZeroAddress.selector));
-
-        (bool success,) = address(temporaryProxy).call(initDataWithZeroOwner);
-        require(!success, "Initialization with zero owner address should have reverted");
+        vm.expectRevert(abi.encodeWithSignature("OwnableInvalidOwner(address)", address(0)));
+        new ERC1967Proxy(address(temporaryImpl), initDataWithZeroOwner);
     }
 
     function test_CannotInitializeTwice() public {
@@ -211,14 +212,17 @@ contract SeedPassTest is Test {
         // Check balances
         assertEq(seedPass.balanceOf(user1), quantity);
         assertEq(usdt.balanceOf(treasury), treasuryBalanceBefore + expectedPayment);
-        assertEq(seedPass.publicMinted(), quantity);
+
+        // Updated to access publicMinted through the config struct
+        (,,,, uint16 publicMinted,) = seedPass.config();
+        assertEq(publicMinted, quantity);
         assertEq(seedPass.numberMinted(user1), quantity);
     }
 
     function test_WhitelistMint_InvalidProof() public {
         vm.warp(wlStartTime);
 
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.NotWhitelisted.selector));
+        vm.expectRevert("NotWhitelisted");
         vm.prank(nonWhitelisted);
         seedPass.mint(1, user1Proof); // Wrong proof
     }
@@ -231,7 +235,7 @@ contract SeedPassTest is Test {
         seedPass.mint(3, user1Proof);
 
         // Try to mint 1 more
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.ExceedsWalletLimit.selector));
+        vm.expectRevert("ExceedsWalletLimit");
         vm.prank(user1);
         seedPass.mint(1, user1Proof);
     }
@@ -239,7 +243,7 @@ contract SeedPassTest is Test {
     function test_WhitelistMint_BeforeStart() public {
         vm.warp(wlStartTime - 1);
 
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.PublicSaleNotStarted.selector));
+        vm.expectRevert("PublicSaleNotStarted");
         vm.prank(user1);
         seedPass.mint(1, user1Proof);
     }
@@ -260,7 +264,9 @@ contract SeedPassTest is Test {
         seedPass.mint(quantity, new bytes32[](0)); // No proof needed for public
 
         assertEq(seedPass.balanceOf(user3), quantity);
-        assertEq(seedPass.publicMinted(), quantity);
+
+        (,,,, uint16 publicMinted,) = seedPass.config();
+        assertEq(publicMinted, quantity);
     }
 
     function test_PublicMint_NoProofRequired() public {
@@ -293,7 +299,9 @@ contract SeedPassTest is Test {
 
         assertEq(seedPass.balanceOf(user1), 5);
         assertEq(seedPass.balanceOf(user2), 3);
-        assertEq(seedPass.reservedMinted(), 8);
+
+        (,,,,, uint16 reservedMinted) = seedPass.config();
+        assertEq(reservedMinted, 8);
     }
 
     function test_AgentMint_OnlyAgent() public {
@@ -313,7 +321,7 @@ contract SeedPassTest is Test {
         recipients[0] = user1;
         quantities[0] = 101; // Exceeds 100 reserved
 
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.ExceedsReservedAllocation.selector));
+        vm.expectRevert("ExceedsReservedAllocation");
         vm.prank(agent1);
         seedPass.agentMint(recipients, quantities);
     }
@@ -344,7 +352,7 @@ contract SeedPassTest is Test {
         assertEq(seedPass.totalSupply(), 106);
 
         // Now try to mint way too many
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.ExceedsMaxSupply.selector));
+        vm.expectRevert("ExceedsMaxSupply");
         vm.prank(user3);
         seedPass.mint(300, new bytes32[](0)); // Would exceed 400
     }
@@ -358,7 +366,7 @@ contract SeedPassTest is Test {
         vm.prank(owner);
         seedPass.setSaleConfig(newWlStart, newWlEnd, false);
 
-        (uint256 wlStart, uint256 wlEnd, bool active) = seedPass.saleConfig();
+        (uint64 wlStart, uint64 wlEnd, bool active,,,) = seedPass.config();
         assertEq(wlStart, newWlStart);
         assertEq(wlEnd, newWlEnd);
         assertFalse(active);
@@ -475,7 +483,7 @@ contract SeedPassTest is Test {
     function test_MintZeroAmount() public {
         vm.warp(wlStartTime);
 
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.InvalidAmount.selector));
+        vm.expectRevert("InvalidAmount");
         vm.prank(user1);
         seedPass.mint(0, user1Proof);
     }
@@ -486,7 +494,7 @@ contract SeedPassTest is Test {
 
         vm.warp(wlStartTime);
 
-        vm.expectRevert(abi.encodeWithSelector(SeedPass.SaleNotActive.selector));
+        vm.expectRevert("SaleNotActive");
         vm.prank(user1);
         seedPass.mint(1, user1Proof);
     }
@@ -558,8 +566,10 @@ contract SeedPassTest is Test {
 
         // 8. Verify final state
         assertEq(seedPass.totalSupply(), 25); // 20 + 3 + 2
-        assertEq(seedPass.publicMinted(), 5); // 3 + 2
-        assertEq(seedPass.reservedMinted(), 20);
-        assertTrue(seedPass.metadataFrozen());
+
+        (,,, bool metadataFrozen, uint16 publicMinted, uint16 reservedMinted) = seedPass.config();
+        assertEq(publicMinted, 5); // 3 + 2
+        assertEq(reservedMinted, 20);
+        assertTrue(metadataFrozen);
     }
 }
