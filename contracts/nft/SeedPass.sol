@@ -56,6 +56,7 @@ contract SeedPass is
     address public treasuryReceiver;
     string private _baseTokenURI;
 
+
     // ----- Events -----
     event PublicMint(address indexed minter, uint256 quantity, uint256 payment);
     event WhitelistMint(address indexed minter, uint256 quantity, uint256 payment);
