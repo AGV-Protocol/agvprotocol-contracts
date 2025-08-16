@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import "ERC721A-Upgradeable/contracts/ERC721AUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import "openzeppelin-contracts-upgradeable/contracts/utils/ContextUpgradeable.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/token/common/ERC2981Upgradeable.sol";
@@ -17,7 +16,7 @@ import "openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgrad
  * @title TreePass
  * @dev ERC721A NFT contract with UUPS upgradeability, ERC2981 royalties, and USDT payments
  */
-contract SeedPass is
+contract TreePass is
     ERC721AUpgradeable,
     UUPSUpgradeable,
     OwnableUpgradeable,
@@ -37,7 +36,7 @@ contract SeedPass is
     uint256 internal constant MAX_PER_WALLET = 2;
     uint256 internal constant PUBLIC_ALLOCATION = 200;
     uint256 internal constant RESERVED_ALLOCATION = 400;
-    uint256 internal constant PRICE_USDT = 55 * 1e6;
+    uint256 internal constant WL_PRICE_USDT = 55 * 1e6;
     uint256 internal constant PUBLIC_PRICE_USDT = 89 * 1e6;
     uint256 internal constant AGENT_PRICE_USDT = 55 * 1e6;
 
@@ -122,21 +121,20 @@ contract SeedPass is
         bool isWL = block.timestamp >= config.wlStartTime && block.timestamp <= config.wlEndTime;
         bool isPub = block.timestamp > config.wlEndTime;
 
+        require(config.publicMinted + amount <= PUBLIC_ALLOCATION, "ExceedsPublicAllocation");
+
         uint256 payment;
 
         if (isWL) {
             require(_verifyWL(msg.sender, merkleProof), "NotWhitelisted");
-            require(config.publicMinted + amount <= RESERVED_ALLOCATION, "ExceedsWhitelistAllocation");
 
             config.publicMinted += amount;
-            payment = amount * PRICE_USDT;
+            payment = amount * WL_PRICE_USDT;
             usdtToken.safeTransferFrom(msg.sender, treasuryReceiver, payment);
             _safeMint(msg.sender, amount);
 
             emit WhitelistMint(msg.sender, amount, payment);
         } else if (isPub) {
-            require(config.publicMinted + amount <= PUBLIC_ALLOCATION, "ExceedsPublicAllocation");
-
             config.publicMinted += amount;
             payment = amount * PUBLIC_PRICE_USDT;
             usdtToken.safeTransferFrom(msg.sender, treasuryReceiver, payment);
@@ -167,8 +165,8 @@ contract SeedPass is
             }
         }
 
-        require(totalSupply() + totalPayment <= MAX_SUPPLY, "ExceedsMaxSupply");
-        require(config.reservedMinted + totalPayment <= RESERVED_ALLOCATION, "ExceedsReservedAllocation");
+        require(totalSupply() + total <= MAX_SUPPLY, "ExceedsMaxSupply");
+        require(config.reservedMinted + total <= RESERVED_ALLOCATION, "ExceedsReservedAllocation");
 
         config.reservedMinted += total;
 
