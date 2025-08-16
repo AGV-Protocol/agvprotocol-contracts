@@ -35,13 +35,13 @@ contract SeedPass is
 
     uint256 internal constant MAX_SUPPLY = 600;
     uint256 internal constant MAX_PER_WALLET = 2;
-    uint256 internal constant PUBLIC_ALLOCATION = 200 ;
+    uint256 internal constant PUBLIC_ALLOCATION = 200;
     uint256 internal constant RESERVED_ALLOCATION = 400;
     uint256 internal constant PRICE_USDT = 55 * 1e6;
     uint256 internal constant PUBLIC_PRICE_USDT = 89 * 1e6;
     uint256 internal constant AGENT_PRICE_USDT = 55 * 1e6;
 
-    uint96 internal constant ROYALTY_BPS = 500; 
+    uint96 internal constant ROYALTY_BPS = 500;
 
     // --- State Variables ---
     struct Config {
@@ -58,7 +58,6 @@ contract SeedPass is
     bytes32 public whitelistMerkleRoot;
     address public treasuryReceiver;
     string private _baseTokenURI;
-
 
     // ----- Events -----
     event PublicMint(address indexed minter, uint256 quantity, uint256 payment);
@@ -124,17 +123,16 @@ contract SeedPass is
         bool isPub = block.timestamp > config.wlEndTime;
 
         uint256 payment;
-        
 
         if (isWL) {
-           require(_verifyWL(msg.sender, merkleProof), "NotWhitelisted");
+            require(_verifyWL(msg.sender, merkleProof), "NotWhitelisted");
             require(config.publicMinted + amount <= RESERVED_ALLOCATION, "ExceedsWhitelistAllocation");
-            
+
             config.publicMinted += amount;
             payment = amount * PRICE_USDT;
             usdtToken.safeTransferFrom(msg.sender, treasuryReceiver, payment);
             _safeMint(msg.sender, amount);
-            
+
             emit WhitelistMint(msg.sender, amount, payment);
         } else if (isPub) {
             require(config.publicMinted + amount <= PUBLIC_ALLOCATION, "ExceedsPublicAllocation");
@@ -143,10 +141,9 @@ contract SeedPass is
             payment = amount * PUBLIC_PRICE_USDT;
             usdtToken.safeTransferFrom(msg.sender, treasuryReceiver, payment);
             _safeMint(msg.sender, amount);
-            
+
             emit PublicMint(msg.sender, amount, payment);
-        }
-        else {
+        } else {
             revert("SaleNotStarted");
         }
     }
@@ -165,10 +162,10 @@ contract SeedPass is
         for (uint256 i; i < amounts.length;) {
             total += amounts[i];
             totalPayment += amounts[i] * AGENT_PRICE_USDT;
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
-
-
 
         require(totalSupply() + totalPayment <= MAX_SUPPLY, "ExceedsMaxSupply");
         require(config.reservedMinted + totalPayment <= RESERVED_ALLOCATION, "ExceedsReservedAllocation");

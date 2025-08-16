@@ -572,4 +572,451 @@ contract SeedPassTest is Test {
         assertEq(reservedMinted, 20);
         assertTrue(metadataFrozen);
     }
+
+    // --- Wallet Limit Tests ---
+
+    function test_WalletLimit_ExactMax() public {
+        vm.warp(wlStartTime);
+
+        // Mint exactly MAX_PER_WALLET (3)
+        vm.prank(user1);
+        seedPass.mint(3, user1Proof);
+
+        assertEq(seedPass.balanceOf(user1), 3);
+        assertEq(seedPass.numberMinted(user1), 3);
+
+        // Try to mint 1 more - should fail
+        vm.expectRevert("ExceedsWalletLimit");
+        vm.prank(user1);
+        seedPass.mint(1, user1Proof);
+    }
+
+    function test_WalletLimit_MultipleTransactions() public {
+        vm.warp(wlStartTime);
+
+        vm.prank(user1);
+        seedPass.mint(2, user1Proof);
+
+        assertEq(seedPass.numberMinted(user1), 2);
+
+        vm.prank(user1);
+        seedPass.mint(1, user1Proof);
+
+        assertEq(seedPass.numberMinted(user1), 3);
+
+        // Try to mint 1 more (total = 4, should fail)
+        vm.expectRevert("ExceedsWalletLimit");
+        vm.prank(user1);
+        seedPass.mint(1, user1Proof);
+    }
+
+    function test_WalletLimit_CrossPhase() public {
+        // Mint 2 during whitelist
+        vm.warp(wlStartTime);
+        vm.prank(user1);
+        seedPass.mint(2, user1Proof);
+
+        assertEq(seedPass.numberMinted(user1), 2);
+
+        // Try to mint 2 more during public (total would be 4)
+        vm.warp(wlEndTime + 1);
+        vm.expectRevert("ExceedsWalletLimit");
+        vm.prank(user1);
+        seedPass.mint(2, new bytes32[](0));
+
+        // But can mint 1 more (total = 3)
+        vm.prank(user1);
+        seedPass.mint(1, new bytes32[](0));
+
+        assertEq(seedPass.numberMinted(user1), 3);
+    }
+
+    function test_WalletLimit_AgentMintDoesNotAffectUserLimit() public {
+        // Agent mints to user1
+        address[] memory recipients = new address[](1);
+        uint256[] memory quantities = new uint256[](1);
+        recipients[0] = user1;
+        quantities[0] = 5;
+
+        vm.prank(agent1);
+        seedPass.agentMint(recipients, quantities);
+
+        assertEq(seedPass.balanceOf(user1), 5);
+        assertEq(seedPass.numberMinted(user1), 5); // tracks user's direct mints only
+
+        // User can still mint up to their limit
+        vm.warp(wlStartTime);
+        vm.expectRevert("ExceedsWalletLimit");
+        vm.prank(user1);
+        seedPass.mint(3, user1Proof);
+
+        assertEq(seedPass.balanceOf(user1), 5); // User mint still 5
+        assertEq(seedPass.numberMinted(user1), 5); // numberMinted still 5
+    }
+
+    // --- Duplicate Tests ---
+
+    function test_MultipleMints_SameUser_SameBlock() public {
+        vm.warp(wlStartTime);
+
+        // Multiple mints in same block should work
+        vm.startPrank(user1);
+        seedPass.mint(1, user1Proof);
+        seedPass.mint(1, user1Proof);
+        seedPass.mint(1, user1Proof);
+        vm.stopPrank();
+
+        assertEq(seedPass.numberMinted(user1), 3);
+        assertEq(seedPass.balanceOf(user1), 3);
+    }
+
+    function test_DuplicateProof_DifferentUsers() public {
+        vm.warp(wlStartTime);
+
+        // user1 mints with their proof
+        vm.prank(user1);
+        seedPass.mint(1, user1Proof);
+
+        // user2 tries to use user1's proof - should fail
+        vm.expectRevert("NotWhitelisted");
+        vm.prank(user2);
+        seedPass.mint(1, user1Proof);
+
+        // user2 uses correct proof - should work
+        vm.prank(user2);
+        seedPass.mint(1, user2Proof);
+
+        assertEq(seedPass.numberMinted(user1), 1);
+        assertEq(seedPass.numberMinted(user2), 1);
+    }
+
+    // --- Role-Based Access Control Tests ---
+
+    function test_OnlyAdmin_CanSetSaleConfig() public {
+        uint256 newStart = block.timestamp + 100;
+        uint256 newEnd = newStart + 200;
+
+        vm.expectRevert(); // Regular user cannot set config
+        vm.prank(user1);
+        seedPass.setSaleConfig(newStart, newEnd, false);
+
+        vm.expectRevert(); // Agent cannot set config
+        vm.prank(agent1);
+        seedPass.setSaleConfig(newStart, newEnd, false);
+
+        vm.expectRevert(); // Treasury cannot set config
+        vm.prank(treasury);
+        seedPass.setSaleConfig(newStart, newEnd, false);
+
+        // Admin can set config
+        vm.prank(admin);
+        seedPass.setSaleConfig(newStart, newEnd, false);
+
+        (uint64 wlStart, uint64 wlEnd, bool active,,,) = seedPass.config();
+        assertEq(wlStart, newStart);
+        assertEq(wlEnd, newEnd);
+        assertFalse(active);
+    }
+
+    function test_OnlyAdmin_CanManageAgents() public {
+        address newAgent = makeAddr("newAgent");
+
+        vm.expectRevert();
+        vm.prank(user1);
+        seedPass.grantAgentRole(newAgent);
+
+        vm.expectRevert();
+        vm.prank(agent1);
+        seedPass.grantAgentRole(newAgent);
+
+        vm.expectRevert();
+        vm.prank(treasury);
+        seedPass.grantAgentRole(newAgent);
+
+        // Admin can grant agent role
+        vm.prank(admin);
+        seedPass.grantAgentRole(newAgent);
+
+        assertTrue(seedPass.hasRole(AGENT_MINTER_ROLE, newAgent));
+
+        // Admin can revoke agent role
+        vm.prank(admin);
+        seedPass.revokeAgentRole(newAgent);
+
+        assertFalse(seedPass.hasRole(AGENT_MINTER_ROLE, newAgent));
+    }
+
+    function test_OnlyOwner_CanSetTreasury() public {
+        address newTreasury = makeAddr("newTreasury");
+
+        vm.expectRevert();
+        vm.prank(user1);
+        seedPass.setTreasuryReceiver(newTreasury);
+
+        vm.expectRevert();
+        vm.prank(treasury);
+        seedPass.setTreasuryReceiver(newTreasury);
+
+        vm.expectRevert();
+        vm.prank(agent1);
+        seedPass.setTreasuryReceiver(newTreasury);
+
+        // Owner can set treasury
+        vm.prank(owner);
+        seedPass.setTreasuryReceiver(newTreasury);
+
+        assertEq(seedPass.treasuryReceiver(), newTreasury);
+    }
+
+    function test_OnlyTreasurer_CanWithdraw() public {
+        // Send some USDT to contract
+        usdt.transfer(address(seedPass), 100 * 10 ** 6);
+
+        vm.expectRevert();
+        vm.prank(user1);
+        seedPass.withdrawTreasury(address(usdt));
+
+        // Admin cannot withdraw (only treasurer)
+        vm.expectRevert();
+        vm.prank(admin);
+        seedPass.withdrawTreasury(address(usdt));
+
+        vm.expectRevert();
+        vm.prank(agent1);
+        seedPass.withdrawTreasury(address(usdt));
+
+        // Treasurer can withdraw
+        uint256 treasuryBalanceBefore = usdt.balanceOf(treasury);
+
+        vm.prank(treasury);
+        seedPass.withdrawTreasury(address(usdt));
+
+        assertEq(usdt.balanceOf(treasury), treasuryBalanceBefore + 100 * 10 ** 6);
+        assertEq(usdt.balanceOf(address(seedPass)), 0);
+    }
+
+    function test_OnlyAdmin_CanPauseUnpause() public {
+        vm.expectRevert();
+        vm.prank(user1);
+        seedPass.pause();
+
+        vm.expectRevert();
+        vm.prank(treasury);
+        seedPass.pause();
+
+        vm.expectRevert();
+        vm.prank(agent1);
+        seedPass.pause();
+
+        // Admin can pause
+        vm.prank(admin);
+        seedPass.pause();
+
+        assertTrue(seedPass.paused());
+
+        // When paused, minting should fail
+        vm.warp(wlStartTime);
+        vm.expectRevert();
+        vm.prank(user1);
+        seedPass.mint(1, user1Proof);
+
+        // Admin can unpause
+        vm.prank(admin);
+        seedPass.unpause();
+
+        assertFalse(seedPass.paused());
+
+        // After unpause, minting should work
+        vm.prank(user1);
+        seedPass.mint(1, user1Proof);
+
+        assertEq(seedPass.balanceOf(user1), 1);
+    }
+
+    // --- Royalty Tests ---
+
+    function test_DefaultRoyalty_SetOnInitialization() public view {
+        (address receiver, uint256 royaltyAmount) = seedPass.royaltyInfo(1, 10000);
+
+        assertEq(receiver, treasury);
+        assertEq(royaltyAmount, 500); // 5% of 10000 = 500
+    }
+
+    function test_RoyaltyInfo_DifferentSalePrices() public view {
+        uint256 salePrice1 = 1000 * 10 ** 6; // 1000 USDT
+        uint256 salePrice2 = 50 * 10 ** 6; // 50 USDT
+
+        (address receiver1, uint256 royalty1) = seedPass.royaltyInfo(1, salePrice1);
+        (address receiver2, uint256 royalty2) = seedPass.royaltyInfo(2, salePrice2);
+
+        assertEq(receiver1, treasury);
+        assertEq(receiver2, treasury);
+        assertEq(royalty1, salePrice1 * 500 / 10000); // 5%
+        assertEq(royalty2, salePrice2 * 500 / 10000); // 5%
+    }
+
+    function test_SetRoyaltyInfo_OnlyAdmin() public {
+        address newRoyaltyReceiver = makeAddr("royaltyReceiver");
+        uint96 newRoyaltyFee = 750; // 7.5%
+
+        // Non-admin cannot set royalty
+        vm.expectRevert();
+        vm.prank(user1);
+        seedPass.setRoyaltyInfo(newRoyaltyReceiver, newRoyaltyFee);
+
+        // Treasury cannot set royalty
+        vm.expectRevert();
+        vm.prank(treasury);
+        seedPass.setRoyaltyInfo(newRoyaltyReceiver, newRoyaltyFee);
+
+        // Admin can set royalty
+        vm.prank(admin);
+        seedPass.setRoyaltyInfo(newRoyaltyReceiver, newRoyaltyFee);
+
+        (address receiver, uint256 royaltyAmount) = seedPass.royaltyInfo(1, 10000);
+
+        assertEq(receiver, newRoyaltyReceiver);
+        assertEq(royaltyAmount, 750); // 7.5% of 10000
+    }
+
+    function test_RoyaltyInfo_SupportsInterface() public view {
+        // ERC2981 interface ID
+        bytes4 ERC2981_INTERFACE_ID = 0x2a55205a;
+        assertTrue(seedPass.supportsInterface(ERC2981_INTERFACE_ID));
+
+        // AccessControl interface ID
+        bytes4 ACCESS_CONTROL_INTERFACE_ID = 0x7965db0b;
+        assertTrue(seedPass.supportsInterface(ACCESS_CONTROL_INTERFACE_ID));
+    }
+
+    // --- Treasury Withdrawal Tests ---
+
+    function test_WithdrawTreasury_USDT() public {
+        // Send USDT to contract
+        uint256 amount = 500 * 10 ** 6; // 500 USDT
+        usdt.transfer(address(seedPass), amount);
+
+        uint256 treasuryBalanceBefore = usdt.balanceOf(treasury);
+
+        vm.expectEmit(true, true, true, true);
+        emit TreasuryWithdraw(address(usdt), amount);
+
+        vm.prank(treasury);
+        seedPass.withdrawTreasury(address(usdt));
+
+        assertEq(usdt.balanceOf(treasury), treasuryBalanceBefore + amount);
+        assertEq(usdt.balanceOf(address(seedPass)), 0);
+    }
+
+    function test_WithdrawTreasury_ETH() public {
+        uint256 amount = 1 ether;
+        vm.deal(address(seedPass), amount);
+
+        uint256 treasuryBalanceBefore = treasury.balance;
+
+        vm.expectEmit(true, true, true, true);
+        emit TreasuryWithdraw(address(0), amount);
+
+        vm.prank(treasury);
+        seedPass.withdrawTreasury(address(0));
+
+        assertEq(treasury.balance, treasuryBalanceBefore + amount);
+        assertEq(address(seedPass).balance, 0);
+    }
+
+    function test_WithdrawTreasury_EmptyBalance() public {
+        assertEq(usdt.balanceOf(address(seedPass)), 0);
+
+        uint256 treasuryBalanceBefore = usdt.balanceOf(treasury);
+
+        // Should not revert, but also not emit event
+        vm.prank(treasury);
+        seedPass.withdrawTreasury(address(usdt));
+
+        assertEq(usdt.balanceOf(treasury), treasuryBalanceBefore);
+    }
+
+    // --- Metadata Tests ---
+
+    function test_SetBaseURI_OnlyAdmin() public {
+        string memory newBaseURI = "https://newapi.example.com/";
+
+        vm.expectRevert();
+        vm.prank(user1);
+        seedPass.setBaseURI(newBaseURI);
+
+        // Admin can set base URI
+        vm.expectEmit(true, true, true, true);
+        emit BaseURIUpdated(newBaseURI);
+
+        vm.prank(admin);
+        seedPass.setBaseURI(newBaseURI);
+    }
+
+    function test_FreezeMetadata_Permanent() public {
+        string memory initialURI = "https://api.example.com/";
+        string memory newURI = "https://newapi.example.com/";
+
+        vm.prank(admin);
+        seedPass.setBaseURI(initialURI);
+
+        // Freeze metadata
+        vm.prank(admin);
+        seedPass.freezeMetadata();
+
+        // Check frozen status
+        (,,, bool metadataFrozen,,) = seedPass.config();
+        assertTrue(metadataFrozen);
+
+        vm.expectRevert("MetadataFrozen");
+        vm.prank(admin);
+        seedPass.setBaseURI(newURI);
+
+        // Even owner cannot change after freeze
+        vm.expectRevert("MetadataFrozen");
+        vm.prank(owner);
+        seedPass.setBaseURI(newURI);
+    }
+
+    // Test BaseURI retrieval
+
+    function test_BaseURI_TokenURI() public {
+        string memory baseURI = "https://api.seedpass.com/metadata/";
+
+        vm.prank(admin);
+        seedPass.setBaseURI(baseURI);
+
+        vm.warp(wlStartTime);
+        vm.prank(user1);
+        seedPass.mint(1, user1Proof);
+
+        // Token ID starts from 1 (due to _startTokenId override)
+        uint256 tokenId = 1;
+
+        string memory tokenURI = seedPass.tokenURI(tokenId);
+
+        string memory expectedURI = string(abi.encodePacked(baseURI, "1"));
+
+        assertEq(tokenURI, expectedURI);
+    }
+
+    function test_BaseURI_MultipleTokens() public {
+        string memory baseURI = "https://metadata.example.com/json/";
+
+        // Set base URI
+        vm.prank(admin);
+        seedPass.setBaseURI(baseURI);
+
+        // Mint multiple tokens
+        vm.warp(wlStartTime);
+        vm.prank(user1);
+        seedPass.mint(3, user1Proof);
+
+        // Check each token's URI
+        for (uint256 i = 1; i <= 3; i++) {
+            string memory tokenURI = seedPass.tokenURI(i);
+            string memory expectedURI = string(abi.encodePacked(baseURI, vm.toString(i)));
+            assertEq(tokenURI, expectedURI);
+        }
+    }
 }
