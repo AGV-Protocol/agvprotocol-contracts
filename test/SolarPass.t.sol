@@ -727,8 +727,6 @@ contract SolarPassTest is Test {
         assertTrue(active);
     }
 
-
-
     function test_OnlyAdmin_CanManageAgents() public {
         address newAgent = makeAddr("newAgent");
 
@@ -781,7 +779,6 @@ contract SolarPassTest is Test {
         assertTrue(solarPass.hasRole(AGENT_MINTER_ROLE, newAgent));
     }
 
-
     function test_OnlyOwner_CanSetTreasuryReceiver() public {
         address newTreasury = makeAddr("newTreasury");
 
@@ -816,7 +813,6 @@ contract SolarPassTest is Test {
         assertEq(solarPass.treasuryReceiver(), anotherTreasury);
         assertTrue(solarPass.hasRole(TREASURER_ROLE, anotherTreasury));
     }
-
 
     function test_OnlyTreasurer_CanWithdraw() public {
         // Send USDT to contract
@@ -854,8 +850,6 @@ contract SolarPassTest is Test {
         assertEq(usdt.balanceOf(treasury), treasuryBalanceBefore + 100 * 10 ** 6);
         assertEq(usdt.balanceOf(address(solarPass)), 0);
     }
-
-
 
     function test_OnlyAdmin_CanPauseUnpause() public {
         // Regular user cannot pause
@@ -927,12 +921,9 @@ contract SolarPassTest is Test {
         assertFalse(solarPass.paused());
     }
 
-
-
     // ════════════════════════════════════════════════════════════════════════════════════════
     //                                ROYALTY TESTS
     // ════════════════════════════════════════════════════════════════════════════════════════
-
 
     function test_DefaultRoyalty_SetOnInitialization() public view {
         (address receiver, uint256 royaltyAmount) = solarPass.royaltyInfo(1, 10000);
@@ -985,9 +976,6 @@ contract SolarPassTest is Test {
         bytes4 ACCESS_CONTROL_INTERFACE_ID = 0x7965db0b;
         assertTrue(solarPass.supportsInterface(ACCESS_CONTROL_INTERFACE_ID));
     }
-
-
-
 
     // ════════════════════════════════════════════════════════════════════════════════════════
     //                              TREASURY WITHDRAWAL TESTS
@@ -1061,13 +1049,9 @@ contract SolarPassTest is Test {
         assertEq(usdt.balanceOf(newTreasury), newTreasuryBalanceBefore + amount);
     }
 
-
-
     // ════════════════════════════════════════════════════════════════════════════════════════
     //                                METADATA TESTS
     // ════════════════════════════════════════════════════════════════════════════════════════
-
-
 
     function test_SetBaseURI_OnlyAdmin() public {
         string memory newBaseURI = "https://newapi.example.com/";
@@ -1151,11 +1135,9 @@ contract SolarPassTest is Test {
         }
     }
 
-
-      // ════════════════════════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════════════════════════
     //                                PRICING TESTS
     // ════════════════════════════════════════════════════════════════════════════════════════
-
 
     function test_WhitelistPrice_IsLowerThanPublic() public pure {
         assertTrue(WL_PRICE_USDT < PUBLIC_PRICE_USDT);
@@ -1190,11 +1172,9 @@ contract SolarPassTest is Test {
         assertTrue(publicPayment > wlPayment);
     }
 
-
     // ════════════════════════════════════════════════════════════════════════════════════════
     //                              INTEGRATION TESTS
     // ════════════════════════════════════════════════════════════════════════════════════════
-
 
     function test_CompleteWorkflow() public {
         // 1. Pause contract
@@ -1241,12 +1221,9 @@ contract SolarPassTest is Test {
         assertTrue(metadataFrozen);
     }
 
-
-
     // ════════════════════════════════════════════════════════════════════════════════════════
     //                              DUPLICATE TESTS
     // ════════════════════════════════════════════════════════════════════════════════════════
-
 
     function test_MultipleMints_SameUser_SameBlock() public {
         vm.warp(wlStartTime);
@@ -1278,6 +1255,4 @@ contract SolarPassTest is Test {
         assertEq(solarPass.numberMinted(user1), 1);
         assertEq(solarPass.numberMinted(user2), 1);
     }
-
-
 }
