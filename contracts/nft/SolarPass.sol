@@ -13,10 +13,10 @@ import "openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.s
 import "openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 
 /**
- * @title TreePass
+ * @title SolarPass
  * @dev ERC721A NFT contract with UUPS upgradeability, ERC2981 royalties, and USDT payments
  */
-contract TreePass is
+contract SolarPass is
     ERC721AUpgradeable,
     UUPSUpgradeable,
     OwnableUpgradeable,
@@ -32,15 +32,15 @@ contract TreePass is
     bytes32 internal constant AGENT_MINTER_ROLE = keccak256("AGENT_MINTER_ROLE");
     bytes32 internal constant TREASURER_ROLE = keccak256("TREASURER_ROLE");
 
-    uint256 internal constant MAX_SUPPLY = 600;
+    uint256 internal constant MAX_SUPPLY = 1500;
     uint256 internal constant MAX_PER_WALLET = 2;
-    uint256 internal constant PUBLIC_ALLOCATION = 200;
-    uint256 internal constant RESERVED_ALLOCATION = 400;
-    uint256 internal constant WL_PRICE_USDT = 55 * 1e6;
-    uint256 internal constant PUBLIC_PRICE_USDT = 89 * 1e6;
-    uint256 internal constant AGENT_PRICE_USDT = 55 * 1e6;
+    uint256 internal constant PUBLIC_ALLOCATION = 500;
+    uint256 internal constant RESERVED_ALLOCATION = 1000;
+    uint256 internal constant WL_PRICE_USDT = 179 * 1e6;
+    uint256 internal constant PUBLIC_PRICE_USDT = 299 * 1e6;
+    uint256 internal constant AGENT_PRICE_USDT = 179 * 1e6;
 
-    uint96 internal constant ROYALTY_BPS = 500;
+    uint96 internal constant ROYALTY_BPS = 300; // 3% royalty fee
 
     // --- State Variables ---
     struct Config {
