@@ -58,49 +58,49 @@ deploy-sp-local: ## Deploy Seedpass to local network (Anvil)
 
 deploy-sp-mumbai: ## Deploy Seedpass to Mumbai testnet
 	@echo "$(CYAN)Deploying SeedPass to Mumbai...$(RESET)"
-	forge script script/Deploy.s.sol:DeploySeedPass --rpc-url mumbai --broadcast --verify -vvvv
+	forge script script/SeedPass.s.sol:DeploySeedPass --rpc-url mumbai --broadcast --verify -vvvv
 
 deploy-sp-sepolia: ## Deploy SeedPass to Sepolia testnet
 	@echo "$(CYAN)Deploying SeedPass to Sepolia...$(RESET)"
-	forge script script/Deploy.s.sol:DeploySeedPass --rpc-url sepolia --broadcast --verify -vvvv
+	forge script script/SeedPass.s.sol:DeploySeedPass --rpc-url sepolia --broadcast --verify -vvvv
 
 deploy-sp-polygon: ## Deploy SeedPass to Polygon mainnet
 	@echo "$(YELLOW)⚠️  WARNING: Deploying SeedPass to POLYGON MAINNET! ⚠️$(RESET)"
 	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
-		forge script script/Deploy.s.sol:DeploySeedPass --rpc-url polygon --broadcast --verify -vvvv; \
+		forge script script/SeedPass.s.sol:DeploySeedPass --rpc-url polygon --broadcast --verify -vvvv; \
 	fi
 
 ##@ Upgrading
 upgrade-sp-local: ## Upgrade seedpass contract on local network
 	@echo "$(CYAN)Upgrading SeedPass on local network...$(RESET)"
-	forge script script/Deploy.s.sol:UpgradeSeedPass --rpc-url local --broadcast -vvvv
+	forge script script/SeedPass.s.sol:UpgradeSeedPass --rpc-url local --broadcast -vvvv
 
 upgrade-sp-mumbai: ## Upgrade seedpass contract on Mumbai
 	@echo "$(CYAN)Upgrading SeedPass on Mumbai...$(RESET)"
-	forge script script/Deploy.s.sol:UpgradeSeedPass --rpc-url mumbai --broadcast -vvvv
+	forge script script/SeedPass.s.sol:UpgradeSeedPass --rpc-url mumbai --broadcast -vvvv
 
 upgrade-sp-sepolia: ## Upgrade contract on Sepolia
 	@echo "$(CYAN)Upgrading SeedPass on Sepolia...$(RESET)"
-	forge script script/Deploy.s.sol:UpgradeSeedPass --rpc-url sepolia --broadcast -vvvv
+	forge script script/SeedPass.s.sol:UpgradeSeedPass --rpc-url sepolia --broadcast -vvvv
 
 upgrade-sp-polygon: ## Upgrade contract on Polygon
 	@echo "$(YELLOW)⚠️  WARNING: Upgrading SeedPass contract on POLYGON MAINNET! ⚠️$(RESET)"
 	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
-		forge script script/Deploy.s.sol:UpgradeSeedPass --rpc-url polygon --broadcast -vvvv; \
+		forge script script/SeedPass.s.sol:UpgradeSeedPass --rpc-url polygon --broadcast -vvvv; \
 	fi
 
 ##@ Configuration
 configure-sp-mumbai: ## Configure seedPass contract on Mumbai
 	@echo "$(CYAN)Configuring SeedPass on Mumbai...$(RESET)"
-	forge script script/Deploy.s.sol:ConfigureSeedPass --rpc-url mumbai --broadcast -vvvv
+	forge script script/SeedPass.s.sol:ConfigureSeedPass --rpc-url mumbai --broadcast -vvvv
 
 configure-sp-sepolia: ## Configure seedPass contract on Sepolia
 	@echo "$(CYAN)Configuring SeedPass on Sepolia...$(RESET)"
-	forge script script/Deploy.s.sol:ConfigureSeedPass --rpc-url sepolia --broadcast -vvvv
+	forge script script/SeedPass.s.sol:ConfigureSeedPass --rpc-url sepolia --broadcast -vvvv
 
 configure-sp-polygon: ## Configure seedPass contract on Polygon
 	@echo "$(CYAN)Configuring SeedPass on Polygon...$(RESET)"
-	forge script script/Deploy.s.sol:ConfigureSeedPass --rpc-url polygon --broadcast -vvvv
+	forge script script/SeedPass.s.sol:ConfigureSeedPass --rpc-url polygon --broadcast -vvvv
 
 ##@ Verification
 verify-sp-mumbai: ## Verify SeedPass contract on Mumbai
