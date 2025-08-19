@@ -13,9 +13,7 @@ remappings = [
 ]
 
 
-# Test settings
-gas_limit = 18446744073709551615
-gas_price = 20000000000
+
 
 [rpc_endpoints]
 polygon = "${POLYGON_RPC_URL}"
