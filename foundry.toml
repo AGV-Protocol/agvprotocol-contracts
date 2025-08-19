@@ -11,3 +11,20 @@ remappings = [
     "openzeppelin-contracts/=lib/openzeppelin-contracts/",
     "ERC721A-Upgradeable/=lib/ERC721A-Upgradeable/",
 ]
+
+
+# Test settings
+gas_limit = 18446744073709551615
+gas_price = 20000000000
+
+[rpc_endpoints]
+polygon = "${POLYGON_RPC_URL}"
+mumbai = "${MUMBAI_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+local = "http://localhost:8545"
+
+# Etherscan API keys for verification
+[etherscan]
+polygon = { key = "${POLYGONSCAN_API_KEY}" }
+mumbai = { key = "${POLYGONSCAN_API_KEY}" }
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
