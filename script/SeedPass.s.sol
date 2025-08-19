@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-
 contract MockUSDT is ERC20 {
     uint8 private _decimals;
 
@@ -25,7 +24,6 @@ contract MockUSDT is ERC20 {
     }
 }
 
-
 contract DeploySeedPass is Script {
     // Configuration constants
     string constant NAME = "SeedPass";
@@ -34,78 +32,63 @@ contract DeploySeedPass is Script {
     // USDT addresses for different networks
     address constant USDT_MAINNET = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     address constant USDT_POLYGON = 0xc2132D05D31c914a87C6611C10748AEb04B58e8F;
-    
+
     // Load these from environment variables
     address OWNER;
     address TREASURY;
     address USDT_ADDRESS;
-    
+
     bytes32 constant INITIAL_MERKLE_ROOT = 0x0000000000000000000000000000000000000000000000000000000000000000;
 
-
     function run() external {
-        
         OWNER = vm.envAddress("OWNER_ADDRESS");
         TREASURY = vm.envAddress("TREASURY_ADDRESS");
-        
-        
+
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         console.log("Deployer address:", deployer);
         console.log("Deployer balance:", deployer.balance);
-        
+
         // Determine USDT address based on chain
         uint256 chainId = block.chainid;
         USDT_ADDRESS = setupUSDTAddress(chainId);
-        
+
         console.log("Chain ID:", chainId);
         console.log("USDT Address:", USDT_ADDRESS);
         console.log("Owner:", OWNER);
         console.log("Treasury:", TREASURY);
-        
+
         // Calculate timestamps
         uint256 wlStartTime = block.timestamp + 1 hours;
         uint256 wlEndTime = block.timestamp + 7 days;
-        
+
         console.log("WL Start Time:", wlStartTime);
         console.log("WL End Time:", wlEndTime);
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         // Deploy implementation
         console.log("Deploying SeedPass implementation...");
         SeedPass implementation = new SeedPass();
         console.log("Implementation deployed at:", address(implementation));
-        
+
         // Prepare initialization data
         bytes memory initData = abi.encodeCall(
             SeedPass.initialize,
-            (
-                NAME,
-                SYMBOL,
-                OWNER,
-                USDT_ADDRESS,
-                TREASURY,
-                INITIAL_MERKLE_ROOT,
-                wlStartTime,
-                wlEndTime
-            )
+            (NAME, SYMBOL, OWNER, USDT_ADDRESS, TREASURY, INITIAL_MERKLE_ROOT, wlStartTime, wlEndTime)
         );
-        
+
         // Deploy proxy
         console.log("Deploying ERC1967Proxy...");
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(implementation),
-            initData
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         console.log("Proxy deployed at:", address(proxy));
-        
+
         vm.stopBroadcast();
-        
+
         // Test the deployed contract
         testDeployedContract(address(proxy));
-        
+
         // Log important addresses
         console.log("\n=== DEPLOYMENT SUMMARY ===");
         console.log("Network Chain ID:", chainId);
@@ -114,11 +97,10 @@ contract DeploySeedPass is Script {
         console.log("Owner:", OWNER);
         console.log("Treasury:", TREASURY);
         console.log("USDT Token:", USDT_ADDRESS);
-        
+
         // Save deployment info
         saveDeploymentInfo(chainId, address(proxy), address(implementation));
     }
-
 
     function getUSDTAddress(uint256 chainId) internal pure returns (address) {
         if (chainId == 1) {
@@ -131,86 +113,93 @@ contract DeploySeedPass is Script {
             // Sepolia - use a mock address or deploy mock USDT
             return 0x7169D38820dfd117C3FA1f22a697dBA58d90BA06; // Mock USDT on Sepolia
         } else {
-             return address(0); // Return address(0) for unknown networks to trigger mock deployment
+            return address(0); // Return address(0) for unknown networks to trigger mock deployment
         }
     }
 
-     function setupUSDTAddress(uint256 chainId) internal returns (address) {
+    function setupUSDTAddress(uint256 chainId) internal returns (address) {
         address usdtAddr = getUSDTAddress(chainId);
-        
+
         // If we got address(0), deploy mock USDT for local/unknown networks
         if (usdtAddr == address(0)) {
             console.log("Network chain ID:", chainId, "- deploying mock USDT");
             return deployMockUSDT();
         }
-        
+
         return usdtAddr;
     }
 
-     function deployMockUSDT() internal returns (address) {
+    function deployMockUSDT() internal returns (address) {
         console.log("Deploying Mock USDT for testing...");
-        
+
         // Deploy a simple ERC20 mock USDT with 6 decimals
         MockUSDT mockUSDT = new MockUSDT();
         console.log("Mock USDT deployed at:", address(mockUSDT));
-        
+
         // Mint some tokens to deployer for testing
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         mockUSDT.mint(deployer, 1000000 * 1e6); // 1M USDT
         console.log("Minted 1M USDT to deployer:", deployer);
-        
+
         return address(mockUSDT);
     }
 
-
     function testDeployedContract(address proxyAddress) internal view {
         console.log("\n=== TESTING DEPLOYED CONTRACT ===");
-        
-        SeedPass seedpass = SeedPass(proxyAddress);
-        
-            string memory name = seedpass.name();
-            string memory symbol = seedpass.symbol();
-            uint256 totalSupply = seedpass.totalSupply();
-            string memory currentPhase = seedpass.getCurrentPhase();
-            uint256 remainingPublic = seedpass.getRemainingPublicSupply();
-            uint256 remainingReserved = seedpass.getRemainingReservedSupply();
 
-            
-            console.log("Name:", name);
-            console.log("Symbol:", symbol);
-            console.log("Total Supply:", totalSupply);
-            console.log("Current Phase:", currentPhase);
-            console.log("Remaining Public:", remainingPublic);
-            console.log("Remaining Reserved:", remainingReserved);
-            
-            console.log(" Contract tests passed!");
-        
+        SeedPass seedpass = SeedPass(proxyAddress);
+
+        string memory name = seedpass.name();
+        string memory symbol = seedpass.symbol();
+        uint256 totalSupply = seedpass.totalSupply();
+        string memory currentPhase = seedpass.getCurrentPhase();
+        uint256 remainingPublic = seedpass.getRemainingPublicSupply();
+        uint256 remainingReserved = seedpass.getRemainingReservedSupply();
+
+        console.log("Name:", name);
+        console.log("Symbol:", symbol);
+        console.log("Total Supply:", totalSupply);
+        console.log("Current Phase:", currentPhase);
+        console.log("Remaining Public:", remainingPublic);
+        console.log("Remaining Reserved:", remainingReserved);
+
+        console.log(" Contract tests passed!");
     }
 
     function saveDeploymentInfo(uint256 chainId, address proxy, address implementation) internal {
         string memory chainName = getChainName(chainId);
         string memory fileName = string.concat("deployments/", chainName, "-deployment.txt");
 
-        
         string memory deploymentInfo = string.concat(
             "SeedPass Deployment Info\n",
             "========================\n",
-            "Chain ID: ", vm.toString(chainId), "\n",
-            "Chain Name: ", chainName, "\n",
-            "Proxy Address: ", vm.toString(proxy), "\n",
-            "Implementation Address: ", vm.toString(implementation), "\n",
-            "Owner: ", vm.toString(OWNER), "\n",
-            "Treasury: ", vm.toString(TREASURY), "\n",
-            "Timestamp: ", vm.toString(block.timestamp), "\n"
+            "Chain ID: ",
+            vm.toString(chainId),
+            "\n",
+            "Chain Name: ",
+            chainName,
+            "\n",
+            "Proxy Address: ",
+            vm.toString(proxy),
+            "\n",
+            "Implementation Address: ",
+            vm.toString(implementation),
+            "\n",
+            "Owner: ",
+            vm.toString(OWNER),
+            "\n",
+            "Treasury: ",
+            vm.toString(TREASURY),
+            "\n",
+            "Timestamp: ",
+            vm.toString(block.timestamp),
+            "\n"
         );
-        
-        
+
         vm.writeFile(fileName, deploymentInfo);
-        
+
         console.log("Deployment info saved to:", fileName);
     }
-
-
 
     function getChainName(uint256 chainId) internal pure returns (string memory) {
         if (chainId == 137) return "polygon";
@@ -219,28 +208,26 @@ contract DeploySeedPass is Script {
         if (chainId == 31337 || chainId == 1337) return "local";
         return "unknown";
     }
-
 }
-
 
 // Script for upgrading the contract
 contract UpgradeSeedPass is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
-        
+
         console.log("Deployer:", vm.addr(deployerPrivateKey));
         console.log("Proxy:", proxyAddress);
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         SeedPass newImplementation = new SeedPass();
         console.log("New implementation:", address(newImplementation));
-        
+
         UUPSUpgradeable(proxyAddress).upgradeToAndCall(address(newImplementation), "");
-        
+
         vm.stopBroadcast();
-        
+
         console.log("Upgrade completed!");
     }
 }
@@ -248,29 +235,29 @@ contract UpgradeSeedPass is Script {
 // Script to setup roles and configuration after deployment
 contract ConfigureSeedPass is Script {
     bytes32 constant AGENT_MINTER_ROLE = keccak256("AGENT_MINTER_ROLE");
-    
+
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
-        
+
         console.log("Configuring SeedPass at:", proxyAddress);
-        
+
         vm.startBroadcast(privateKey);
-        
+
         SeedPass seedpass = SeedPass(proxyAddress);
-        
+
         // 1. Set base URI
         string memory baseURI = "https://api.agvprotocol.com/metadata/seedpass/";
         seedpass.setBaseURI(baseURI);
         console.log("Set base URI:", baseURI);
-        
+
         // 2. Grant agent role to specific addresses (to be replaced with actual addresses)
         address agent1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
         if (!seedpass.hasRole(AGENT_MINTER_ROLE, agent1)) {
             seedpass.grantAgentRole(agent1);
             console.log(" Granted AGENT_MINTER_ROLE to:", agent1);
         }
-        
+
         // 3. Update sale config (extend whitelist period)
         uint256 wlStart = block.timestamp + 1 hours;
         uint256 wlEnd = block.timestamp + 14 days; // 2 weeks
@@ -278,20 +265,20 @@ contract ConfigureSeedPass is Script {
         console.log(" Updated sale config");
         console.log("  WL Start:", wlStart);
         console.log("  WL End:", wlEnd);
-        
+
         // 4. Set whitelist merkle root (if you have one)
         // bytes32 merkleRoot = 0x...; // Your actual merkle root
         // seedpass.setWhitelistRoot(merkleRoot);
         // console.log(" Set whitelist merkle root");
-        
+
         vm.stopBroadcast();
-        
+
         // Display final config
         console.log("\n=== CONFIGURATION SUMMARY ===");
         console.log("Current Phase:", seedpass.getCurrentPhase());
         console.log("Remaining Public Supply:", seedpass.getRemainingPublicSupply());
         console.log("Treasury:", seedpass.treasuryReceiver());
-        
+
         console.log("Configuration completed!");
     }
 }
