@@ -115,7 +115,7 @@ contract DeploySeedPass is Script {
         console.log("USDT Token:", USDT_ADDRESS);
         
         // Save deployment info
-        // saveDeploymentInfo(chainId, address(proxy), address(implementation));
+        saveDeploymentInfo(chainId, address(proxy), address(implementation));
     }
 
 
@@ -177,7 +177,7 @@ contract DeploySeedPass is Script {
             string memory currentPhase = seedpass.getCurrentPhase();
             uint256 remainingPublic = seedpass.getRemainingPublicSupply();
             uint256 remainingReserved = seedpass.getRemainingReservedSupply();
-            
+
             
             console.log("Name:", name);
             console.log("Symbol:", symbol);
@@ -193,8 +193,8 @@ contract DeploySeedPass is Script {
 
     function saveDeploymentInfo(uint256 chainId, address proxy, address implementation) internal {
         string memory chainName = getChainName(chainId);
-        // string memory fileName = string.concat("deployments/", chainName, "-deployment.txt");
-        string memory fileName = string.concat("broadcast/", chainName, "-deployment.txt");
+        string memory fileName = string.concat("deployments/", chainName, "-deployment.txt");
+        // string memory fileName = string.concat("broadcast/", chainName, "-deployment.txt");
 
         
         string memory deploymentInfo = string.concat(

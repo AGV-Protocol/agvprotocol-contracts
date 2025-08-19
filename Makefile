@@ -54,6 +54,7 @@ test-coverage: ## Run test coverage
 
 deploy-sp-local: ## Deploy Seedpass to local network (Anvil)
 	@echo "$(CYAN)Deploying SeedPass to local network...$(RESET)"
+	@mkdir -p deployments
 	forge script script/SeedPass.s.sol:DeploySeedPass --rpc-url local --broadcast -vvvv
 
 deploy-sp-mumbai: ## Deploy Seedpass to Mumbai testnet
