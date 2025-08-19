@@ -171,7 +171,6 @@ contract DeploySeedPass is Script {
             string memory name = seedpass.name();
             string memory symbol = seedpass.symbol();
             uint256 totalSupply = seedpass.totalSupply();
-            // uint256 maxSupply = seedpass.MAX_SUPPLY();
             string memory currentPhase = seedpass.getCurrentPhase();
             uint256 remainingPublic = seedpass.getRemainingPublicSupply();
             uint256 remainingReserved = seedpass.getRemainingReservedSupply();
@@ -180,7 +179,6 @@ contract DeploySeedPass is Script {
             console.log("Name:", name);
             console.log("Symbol:", symbol);
             console.log("Total Supply:", totalSupply);
-            // console.log("Max Supply:", maxSupply);
             console.log("Current Phase:", currentPhase);
             console.log("Remaining Public:", remainingPublic);
             console.log("Remaining Reserved:", remainingReserved);
@@ -236,11 +234,9 @@ contract UpgradeSeedPass is Script {
         
         vm.startBroadcast(deployerPrivateKey);
         
-        // Deploy new implementation
         SeedPass newImplementation = new SeedPass();
         console.log("New implementation:", address(newImplementation));
         
-        // Direct upgrade call - let the contract handle authorization
         UUPSUpgradeable(proxyAddress).upgradeToAndCall(address(newImplementation), "");
         
         vm.stopBroadcast();
@@ -250,34 +246,52 @@ contract UpgradeSeedPass is Script {
 }
 
 // Script to setup roles and configuration after deployment
-// contract ConfigureSeedPass is Script {
-//     function run() external {
-//         uint256 privateKey = vm.envUint("PRIVATE_KEY");
-//         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
+contract ConfigureSeedPass is Script {
+    bytes32 constant AGENT_MINTER_ROLE = keccak256("AGENT_MINTER_ROLE");
+    
+    function run() external {
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+        address proxyAddress = vm.envAddress("PROXY_ADDRESS");
         
-//         vm.startBroadcast(privateKey);
+        console.log("Configuring SeedPass at:", proxyAddress);
         
-//         SeedPass seedpass = SeedPass(proxyAddress);
+        vm.startBroadcast(privateKey);
         
-//         //Grant agent role to specific addresses
-//         address[] memory agents = new address[](2);
-//         agents[0] = 0x123...; //  with actual agent addresses
-//         agents[1] = 0x456...;
+        SeedPass seedpass = SeedPass(proxyAddress);
         
-//         for (uint i = 0; i < agents.length; i++) {
-//             if (!seedpass.hasRole(seedpass.AGENT_MINTER_ROLE(), agents[i])) {
-//                 seedpass.grantAgentRole(agents[i]);
-//                 console.log("Granted agent role to:", agents[i]);
-//             }
-//         }
+        // 1. Set base URI
+        string memory baseURI = "https://api.agvprotocol.com/metadata/seedpass/";
+        seedpass.setBaseURI(baseURI);
+        console.log("Set base URI:", baseURI);
         
-//         // base URI if needed
-//         string memory baseURI = "https://api.yourproject.com/metadata/";
-//         seedpass.setBaseURI(baseURI);
-//         console.log("Set base URI to:", baseURI);
+        // 2. Grant agent role to specific addresses (to be replaced with actual addresses)
+        address agent1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
+        if (!seedpass.hasRole(AGENT_MINTER_ROLE, agent1)) {
+            seedpass.grantAgentRole(agent1);
+            console.log(" Granted AGENT_MINTER_ROLE to:", agent1);
+        }
         
-//         vm.stopBroadcast();
+        // 3. Update sale config (extend whitelist period)
+        uint256 wlStart = block.timestamp + 1 hours;
+        uint256 wlEnd = block.timestamp + 14 days; // 2 weeks
+        seedpass.setSaleConfig(wlStart, wlEnd, true);
+        console.log(" Updated sale config");
+        console.log("  WL Start:", wlStart);
+        console.log("  WL End:", wlEnd);
         
-//         console.log(" Configuration completed!");
-//     }
-// }
+        // 4. Set whitelist merkle root (if you have one)
+        // bytes32 merkleRoot = 0x...; // Your actual merkle root
+        // seedpass.setWhitelistRoot(merkleRoot);
+        // console.log(" Set whitelist merkle root");
+        
+        vm.stopBroadcast();
+        
+        // Display final config
+        console.log("\n=== CONFIGURATION SUMMARY ===");
+        console.log("Current Phase:", seedpass.getCurrentPhase());
+        console.log("Remaining Public Supply:", seedpass.getRemainingPublicSupply());
+        console.log("Treasury:", seedpass.treasuryReceiver());
+        
+        console.log("Configuration completed!");
+    }
+}
