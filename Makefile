@@ -50,68 +50,69 @@ test-coverage: ## Run test coverage
 	@echo "$(CYAN)Running test coverage...$(RESET)"
 	forge coverage
 
-##@ Deployment
-deploy-local: ## Deploy to local network (Anvil)
+##@ Deployment of SeedPass
+
+deploy-sp-local: ## Deploy Seedpass to local network (Anvil)
 	@echo "$(CYAN)Deploying SeedPass to local network...$(RESET)"
 	forge script script/Deploy.s.sol:DeploySeedPass --rpc-url local --broadcast -vvvv
 
-deploy-mumbai: ## Deploy to Mumbai testnet
+deploy-sp-mumbai: ## Deploy Seedpass to Mumbai testnet
 	@echo "$(CYAN)Deploying SeedPass to Mumbai...$(RESET)"
 	forge script script/Deploy.s.sol:DeploySeedPass --rpc-url mumbai --broadcast --verify -vvvv
 
-deploy-sepolia: ## Deploy to Sepolia testnet
+deploy-sp-sepolia: ## Deploy SeedPass to Sepolia testnet
 	@echo "$(CYAN)Deploying SeedPass to Sepolia...$(RESET)"
 	forge script script/Deploy.s.sol:DeploySeedPass --rpc-url sepolia --broadcast --verify -vvvv
 
-deploy-polygon: ## Deploy to Polygon mainnet
-	@echo "$(YELLOW)⚠️  WARNING: Deploying to POLYGON MAINNET! ⚠️$(RESET)"
+deploy-sp-polygon: ## Deploy SeedPass to Polygon mainnet
+	@echo "$(YELLOW)⚠️  WARNING: Deploying SeedPass to POLYGON MAINNET! ⚠️$(RESET)"
 	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
 		forge script script/Deploy.s.sol:DeploySeedPass --rpc-url polygon --broadcast --verify -vvvv; \
 	fi
 
 ##@ Upgrading
-upgrade-local: ## Upgrade contract on local network
+upgrade-sp-local: ## Upgrade seedpass contract on local network
 	@echo "$(CYAN)Upgrading SeedPass on local network...$(RESET)"
 	forge script script/Deploy.s.sol:UpgradeSeedPass --rpc-url local --broadcast -vvvv
 
-upgrade-mumbai: ## Upgrade contract on Mumbai
+upgrade-sp-mumbai: ## Upgrade seedpass contract on Mumbai
 	@echo "$(CYAN)Upgrading SeedPass on Mumbai...$(RESET)"
 	forge script script/Deploy.s.sol:UpgradeSeedPass --rpc-url mumbai --broadcast -vvvv
 
-upgrade-sepolia: ## Upgrade contract on Sepolia
+upgrade-sp-sepolia: ## Upgrade contract on Sepolia
 	@echo "$(CYAN)Upgrading SeedPass on Sepolia...$(RESET)"
 	forge script script/Deploy.s.sol:UpgradeSeedPass --rpc-url sepolia --broadcast -vvvv
 
-upgrade-polygon: ## Upgrade contract on Polygon
-	@echo "$(YELLOW)⚠️  WARNING: Upgrading contract on POLYGON MAINNET! ⚠️$(RESET)"
+upgrade-sp-polygon: ## Upgrade contract on Polygon
+	@echo "$(YELLOW)⚠️  WARNING: Upgrading SeedPass contract on POLYGON MAINNET! ⚠️$(RESET)"
 	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
 		forge script script/Deploy.s.sol:UpgradeSeedPass --rpc-url polygon --broadcast -vvvv; \
 	fi
 
 ##@ Configuration
-configure-mumbai: ## Configure contract on Mumbai
+configure-sp-mumbai: ## Configure seedPass contract on Mumbai
 	@echo "$(CYAN)Configuring SeedPass on Mumbai...$(RESET)"
 	forge script script/Deploy.s.sol:ConfigureSeedPass --rpc-url mumbai --broadcast -vvvv
 
-configure-sepolia: ## Configure contract on Sepolia
+configure-sp-sepolia: ## Configure seedPass contract on Sepolia
 	@echo "$(CYAN)Configuring SeedPass on Sepolia...$(RESET)"
 	forge script script/Deploy.s.sol:ConfigureSeedPass --rpc-url sepolia --broadcast -vvvv
 
-configure-polygon: ## Configure contract on Polygon
+configure-sp-polygon: ## Configure seedPass contract on Polygon
 	@echo "$(CYAN)Configuring SeedPass on Polygon...$(RESET)"
 	forge script script/Deploy.s.sol:ConfigureSeedPass --rpc-url polygon --broadcast -vvvv
 
 ##@ Verification
-verify-mumbai: ## Verify contract on Mumbai
-	@echo "$(CYAN)Verifying contract on Mumbai...$(RESET)"
+verify-sp-mumbai: ## Verify SeedPass contract on Mumbai
+	@echo "$(CYAN)Verifying SeedPass contract on Mumbai...$(RESET)"
 	forge verify-contract $(PROXY_ADDRESS) src/SeedPass.sol:SeedPass --chain mumbai
 
-verify-sepolia: ## Verify contract on Sepolia
-	@echo "$(CYAN)Verifying contract on Sepolia...$(RESET)"
+verify-sp-sepolia: ## Verify Seedpass contract on Sepolia
+	@echo "$(CYAN)Verifying Seedpass contract on Sepolia...$(RESET)"
 	forge verify-contract $(PROXY_ADDRESS) src/SeedPass.sol:SeedPass --chain sepolia
 
-verify-polygon: ## Verify contract on Polygon
-	@echo "$(CYAN)Verifying contract on Polygon...$(RESET)"
+verify-sp-polygon: ## Verify Seedpass contract on Polygon
+	@echo "$(CYAN)Verifying Seedpass contract on Polygon...$(RESET)"
 	forge verify-contract $(PROXY_ADDRESS) src/SeedPass.sol:SeedPass --chain polygon
 
 ##@ Utilities
@@ -168,12 +169,12 @@ endif
 	@cast balance $(shell cast wallet address --private-key $(PRIVATE_KEY)) --rpc-url $(NETWORK)
 
 ##@ Security
-slither: ## Run Slither static analysis
-	@echo "$(CYAN)Running Slither analysis...$(RESET)"
+slither-sp: ## Run Slither static analysis
+	@echo "$(CYAN)Running Slither analysis for SeedPass...$(RESET)"
 	slither src/SeedPass.sol
 
-mythril: ## Run Mythril security analysis
-	@echo "$(CYAN)Running Mythril analysis...$(RESET)"
+mythril-sp: ## Run Mythril security analysis
+	@echo "$(CYAN)Running Mythril analysis for SeedPass...$(RESET)"
 	myth analyze src/SeedPass.sol --solv 0.8.20
 
 ##@ Documentation
