@@ -6,6 +6,7 @@ import "forge-std/console.sol";
 import "../contracts/nft/SeedPass.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 
 contract MockUSDT is ERC20 {
@@ -130,9 +131,6 @@ contract DeploySeedPass is Script {
             // Sepolia - use a mock address or deploy mock USDT
             return 0x7169D38820dfd117C3FA1f22a697dBA58d90BA06; // Mock USDT on Sepolia
         } else {
-            // For other networks, you might want to deploy a mock USDT
-            // console.log("Network chain ID:", chainId, "- deploying mock USDT");
-            // return deployMockUSDT();
              return address(0); // Return address(0) for unknown networks to trigger mock deployment
         }
     }
@@ -194,7 +192,6 @@ contract DeploySeedPass is Script {
     function saveDeploymentInfo(uint256 chainId, address proxy, address implementation) internal {
         string memory chainName = getChainName(chainId);
         string memory fileName = string.concat("deployments/", chainName, "-deployment.txt");
-        // string memory fileName = string.concat("broadcast/", chainName, "-deployment.txt");
 
         
         string memory deploymentInfo = string.concat(
@@ -234,21 +231,21 @@ contract UpgradeSeedPass is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
         
-        console.log("Upgrading SeedPass at:", proxyAddress);
+        console.log("Deployer:", vm.addr(deployerPrivateKey));
+        console.log("Proxy:", proxyAddress);
         
         vm.startBroadcast(deployerPrivateKey);
         
         // Deploy new implementation
         SeedPass newImplementation = new SeedPass();
-        console.log("New implementation deployed at:", address(newImplementation));
+        console.log("New implementation:", address(newImplementation));
         
-        // Upgrade the proxy
-        SeedPass proxy = SeedPass(proxyAddress);
-        proxy.upgradeToAndCall(address(newImplementation), "");
+        // Direct upgrade call - let the contract handle authorization
+        UUPSUpgradeable(proxyAddress).upgradeToAndCall(address(newImplementation), "");
         
         vm.stopBroadcast();
         
-        console.log("Upgrade completed successfully!");
+        console.log("Upgrade completed!");
     }
 }
 
