@@ -105,15 +105,15 @@ configure-sp-polygon: ## Configure seedPass contract on Polygon
 ##@ Verification
 verify-sp-mumbai: ## Verify SeedPass contract on Mumbai
 	@echo "$(CYAN)Verifying SeedPass contract on Mumbai...$(RESET)"
-	forge verify-contract $(PROXY_ADDRESS) src/SeedPass.sol:SeedPass --chain mumbai
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/SeedPass.sol:SeedPass --chain mumbai
 
 verify-sp-sepolia: ## Verify Seedpass contract on Sepolia
 	@echo "$(CYAN)Verifying Seedpass contract on Sepolia...$(RESET)"
-	forge verify-contract $(PROXY_ADDRESS) src/SeedPass.sol:SeedPass --chain sepolia
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/SeedPass.sol:SeedPass --chain sepolia
 
 verify-sp-polygon: ## Verify Seedpass contract on Polygon
 	@echo "$(CYAN)Verifying Seedpass contract on Polygon...$(RESET)"
-	forge verify-contract $(PROXY_ADDRESS) src/SeedPass.sol:SeedPass --chain polygon
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/SeedPass.sol:SeedPass --chain polygon
 
 ##@ Utilities
 node: ## Start local Anvil node with Polygon fork
@@ -171,11 +171,11 @@ endif
 ##@ Security
 slither-sp: ## Run Slither static analysis
 	@echo "$(CYAN)Running Slither analysis for SeedPass...$(RESET)"
-	slither src/SeedPass.sol
+	slither contracts/nft/SeedPass.sol
 
 mythril-sp: ## Run Mythril security analysis
 	@echo "$(CYAN)Running Mythril analysis for SeedPass...$(RESET)"
-	myth analyze src/SeedPass.sol --solv 0.8.20
+	myth analyze contracts/nft/SeedPass.sol --solv 0.8.20
 
 ##@ Documentation
 docs: ## Generate documentation
