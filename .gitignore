@@ -16,3 +16,7 @@ docs/
 
 #deployments
 deployments/
+
+# Coverage reports
+coverage-report/
+coverage/
