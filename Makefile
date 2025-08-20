@@ -111,6 +111,27 @@ deploy-slp-polygon: ## Deploy SolarPass to Polygon mainnet
 	fi
 
 
+##@ Deployment of ComputePass
+
+deploy-cp-local: ## Deploy ComputePass to local network (Anvil)
+	@echo "$(CYAN)Deploying ComputePass to local network...$(RESET)"
+	@mkdir -p deployments
+	forge script script/ComputePass.s.sol:DeployComputePass --rpc-url local --broadcast -vvvv
+
+deploy-cp-sepolia: ## Deploy ComputePass to Sepolia testnet
+	@echo "$(CYAN)Deploying ComputePass to Sepolia...$(RESET)"
+	@mkdir -p deployments
+	forge script script/ComputePass.s.sol:DeployComputePass --rpc-url sepolia --broadcast --verify -vvvv
+
+deploy-cp-polygon: ## Deploy ComputePass to Polygon mainnet
+	@echo "$(YELLOW)⚠️  WARNING: Deploying ComputePass to POLYGON MAINNET! ⚠️$(RESET)"
+	@mkdir -p deployments
+	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
+		forge script script/ComputePass.s.sol:DeployComputePass --rpc-url polygon --broadcast --verify -vvvv; \
+	fi
+
+
+
 
 ##@ Upgrading SeedPass
 upgrade-sp-local: ## Upgrade seedpass contract on local network
@@ -160,6 +181,23 @@ upgrade-slp-polygon: ## Upgrade contract on Polygon
 	fi
 
 
+##@ Upgrading ComputePass
+upgrade-cp-local: ## Upgrade Computepass contract on local network
+	@echo "$(CYAN)Upgrading ComputePass on local network...$(RESET)"
+	forge script script/ComputePass.s.sol:UpgradeComputePass --rpc-url local --broadcast -vvvv
+
+upgrade-cp-sepolia: ## Upgrade contract on Sepolia
+	@echo "$(CYAN)Upgrading ComputePass on Sepolia...$(RESET)"
+	forge script script/ComputePass.s.sol:UpgradeComputePass --rpc-url sepolia --broadcast -vvvv
+
+upgrade-cp-polygon: ## Upgrade contract on Polygon
+	@echo "$(YELLOW)⚠️  WARNING: Upgrading ComputePass contract on POLYGON MAINNET! ⚠️$(RESET)"
+	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
+		forge script script/ComputePass.s.sol:UpgradeComputePass --rpc-url polygon --broadcast -vvvv; \
+	fi
+
+
+
 ##@ Configuration SeedPass
 configure-sp-sepolia: ## Configure seedPass contract on Sepolia
 	@echo "$(CYAN)Configuring SeedPass on Sepolia...$(RESET)"
@@ -179,6 +217,7 @@ configure-tp-polygon: ## Configure TreePass contract on Polygon
 	@echo "$(CYAN)Configuring TreePass on Polygon...$(RESET)"
 	forge script script/TreePass.s.sol:ConfigureTreePass --rpc-url polygon --broadcast -vvvv
 
+
 ##@ Configuration SolarPass
 configure-slp-sepolia: ## Configure SolarPass contract on Sepolia
 	@echo "$(CYAN)Configuring SolarPass on Sepolia...$(RESET)"
@@ -187,6 +226,16 @@ configure-slp-sepolia: ## Configure SolarPass contract on Sepolia
 configure-slp-polygon: ## Configure SolarPass contract on Polygon
 	@echo "$(CYAN)Configuring SolarPass on Polygon...$(RESET)"
 	forge script script/TreePass.s.sol:ConfigureSolarPass --rpc-url polygon --broadcast -vvvv
+
+
+##@ Configuration ComputePass
+configure-cp-sepolia: ## Configure ComputePass contract on Sepolia
+	@echo "$(CYAN)Configuring ComputePass on Sepolia...$(RESET)"
+	forge script script/ComputePass.s.sol:ConfigureComputePass --rpc-url sepolia --broadcast -vvvv
+
+configure-cp-polygon: ## Configure ComputePass contract on Polygon
+	@echo "$(CYAN)Configuring ComputePass on Polygon...$(RESET)"
+	forge script script/ComputePass.s.sol:ConfigureComputePass --rpc-url polygon --broadcast -vvvv
 
 	
 
@@ -220,6 +269,19 @@ verify-slp-sepolia: ## Verify Solarpass contract on Sepolia
 verify-slp-polygon: ## Verify Solarpass contract on Polygon
 	@echo "$(CYAN)Verifying Solarpass contract on Polygon...$(RESET)"
 	forge verify-contract $(PROXY_ADDRESS) contracts/nft/SolarPass.sol:SolarPass --chain polygon
+
+
+##@ Verification Computepass
+
+verify-slp-sepolia: ## Verify Computepass contract on Sepolia
+	@echo "$(CYAN)Verifying Computepass contract on Sepolia...$(RESET)"
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/ComputePass.sol:ComputePass --chain sepolia
+
+verify-slp-polygon: ## Verify Computepass contract on Polygon
+	@echo "$(CYAN)Verifying Computepass contract on Polygon...$(RESET)"
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/ComputePass.sol:ComputePass --chain polygon
+
+
 
 
 
