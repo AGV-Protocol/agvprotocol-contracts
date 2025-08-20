@@ -252,7 +252,7 @@ contract ConfigureTreePass is Script {
         console.log("Set base URI:", baseURI);
 
         // 2. Grant agent role to specific addresses (to be replaced with actual addresses)
-        address agent1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8; 
+        address agent1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
         if (!treePass.hasRole(AGENT_MINTER_ROLE, agent1)) {
             treePass.grantAgentRole(agent1);
             console.log(" Granted AGENT_MINTER_ROLE to:", agent1);
@@ -266,12 +266,11 @@ contract ConfigureTreePass is Script {
         console.log("  WL Start:", wlStart);
         console.log("  WL End:", wlEnd);
 
-
         // 4. withdraw funds to treasury'
         address treasury = treePass.treasuryReceiver();
         uint256 balance = address(treePass).balance;
         if (balance > 0) {
-            (bool success, ) = treasury.call{value: balance}("");
+            (bool success,) = treasury.call{value: balance}("");
             require(success, "Transfer failed");
             console.log(" Withdrawn funds to treasury:", treasury);
         } else {
