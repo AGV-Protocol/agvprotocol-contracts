@@ -273,11 +273,11 @@ verify-slp-polygon: ## Verify Solarpass contract on Polygon
 
 ##@ Verification Computepass
 
-verify-slp-sepolia: ## Verify Computepass contract on Sepolia
+verify-cp-sepolia: ## Verify Computepass contract on Sepolia
 	@echo "$(CYAN)Verifying Computepass contract on Sepolia...$(RESET)"
 	forge verify-contract $(PROXY_ADDRESS) contracts/nft/ComputePass.sol:ComputePass --chain sepolia
 
-verify-slp-polygon: ## Verify Computepass contract on Polygon
+verify-cp-polygon: ## Verify Computepass contract on Polygon
 	@echo "$(CYAN)Verifying Computepass contract on Polygon...$(RESET)"
 	forge verify-contract $(PROXY_ADDRESS) contracts/nft/ComputePass.sol:ComputePass --chain polygon
 
