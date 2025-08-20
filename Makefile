@@ -50,6 +50,8 @@ test-coverage: ## Run test coverage
 	@echo "$(CYAN)Running test coverage...$(RESET)"
 	forge coverage
 
+
+
 ##@ Deployment of SeedPass
 
 deploy-sp-local: ## Deploy Seedpass to local network (Anvil)
@@ -69,6 +71,7 @@ deploy-sp-polygon: ## Deploy SeedPass to Polygon mainnet
 		forge script script/SeedPass.s.sol:DeploySeedPass --rpc-url polygon --broadcast --verify -vvvv; \
 	fi
 
+
 ##@ Deployment of TreePass
 
 deploy-tp-local: ## Deploy TreePass to local network (Anvil)
@@ -87,6 +90,26 @@ deploy-tp-polygon: ## Deploy TreePass to Polygon mainnet
 	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
 		forge script script/TreePass.s.sol:DeployTreePass --rpc-url polygon --broadcast --verify -vvvv; \
 	fi
+
+##@ Deployment of SolarPass
+
+deploy-slp-local: ## Deploy SolarPass to local network (Anvil)
+	@echo "$(CYAN)Deploying SolarPass to local network...$(RESET)"
+	@mkdir -p deployments
+	forge script script/SolarPass.s.sol:DeploySolarPass --rpc-url local --broadcast -vvvv
+
+deploy-slp-sepolia: ## Deploy SolarPass to Sepolia testnet
+	@echo "$(CYAN)Deploying SolarPass to Sepolia...$(RESET)"
+	@mkdir -p deployments
+	forge script script/SolarPass.s.sol:DeploySolarPass --rpc-url sepolia --broadcast --verify -vvvv
+
+deploy-slp-polygon: ## Deploy SolarPass to Polygon mainnet
+	@echo "$(YELLOW)⚠️  WARNING: Deploying SolarPass to POLYGON MAINNET! ⚠️$(RESET)"
+	@mkdir -p deployments
+	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
+		forge script script/SolarPass.s.sol:DeploySolarPass --rpc-url polygon --broadcast --verify -vvvv; \
+	fi
+
 
 
 ##@ Upgrading SeedPass
@@ -121,6 +144,21 @@ upgrade-tp-polygon: ## Upgrade contract on Polygon
 	fi
 
 
+##@ Upgrading SolarPass
+upgrade-slp-local: ## Upgrade Solarpass contract on local network
+	@echo "$(CYAN)Upgrading SolarPass on local network...$(RESET)"
+	forge script script/SolarPass.s.sol:UpgradeSolarPass --rpc-url local --broadcast -vvvv
+
+upgrade-slp-sepolia: ## Upgrade contract on Sepolia
+	@echo "$(CYAN)Upgrading SolarPass on Sepolia...$(RESET)"
+	forge script script/SolarPass.s.sol:UpgradeSolarPass --rpc-url sepolia --broadcast -vvvv
+
+upgrade-slp-polygon: ## Upgrade contract on Polygon
+	@echo "$(YELLOW)⚠️  WARNING: Upgrading SolarPass contract on POLYGON MAINNET! ⚠️$(RESET)"
+	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
+		forge script script/SolarPass.s.sol:UpgradeSolarPass --rpc-url polygon --broadcast -vvvv; \
+	fi
+
 
 ##@ Configuration SeedPass
 configure-sp-sepolia: ## Configure seedPass contract on Sepolia
@@ -141,6 +179,15 @@ configure-tp-polygon: ## Configure TreePass contract on Polygon
 	@echo "$(CYAN)Configuring TreePass on Polygon...$(RESET)"
 	forge script script/TreePass.s.sol:ConfigureTreePass --rpc-url polygon --broadcast -vvvv
 
+##@ Configuration SolarPass
+configure-slp-sepolia: ## Configure SolarPass contract on Sepolia
+	@echo "$(CYAN)Configuring SolarPass on Sepolia...$(RESET)"
+	forge script script/SolarPass.s.sol:ConfigureSolarPass --rpc-url sepolia --broadcast -vvvv
+
+configure-slp-polygon: ## Configure SolarPass contract on Polygon
+	@echo "$(CYAN)Configuring SolarPass on Polygon...$(RESET)"
+	forge script script/TreePass.s.sol:ConfigureSolarPass --rpc-url polygon --broadcast -vvvv
+
 	
 
 ##@ Verification seedpass
@@ -158,11 +205,21 @@ verify-sp-polygon: ## Verify Seedpass contract on Polygon
 
 verify-tp-sepolia: ## Verify Treepass contract on Sepolia
 	@echo "$(CYAN)Verifying Treepass contract on Sepolia...$(RESET)"
-	forge verify-contract $(PROXY_ADDRESS) contracts/nft/TreePass.sol:SeedPass --chain sepolia
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/TreePass.sol:TreePass --chain sepolia
 
 verify-tp-polygon: ## Verify Treepass contract on Polygon
 	@echo "$(CYAN)Verifying Treepass contract on Polygon...$(RESET)"
-	forge verify-contract $(PROXY_ADDRESS) contracts/nft/TreePass.sol:SeedPass --chain polygon
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/TreePass.sol:TreePass --chain polygon
+
+##@ Verification Solarpass
+
+verify-slp-sepolia: ## Verify Solarpass contract on Sepolia
+	@echo "$(CYAN)Verifying Solarpass contract on Sepolia...$(RESET)"
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/SolarPass.sol:SolarPass --chain sepolia
+
+verify-slp-polygon: ## Verify Solarpass contract on Polygon
+	@echo "$(CYAN)Verifying Solarpass contract on Polygon...$(RESET)"
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/SolarPass.sol:SolarPass --chain polygon
 
 
 
