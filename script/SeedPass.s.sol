@@ -247,12 +247,12 @@ contract ConfigureSeedPass is Script {
         SeedPass seedpass = SeedPass(proxyAddress);
 
         // 1. Set base URI
-        string memory baseURI = "https://api.agvprotocol.com/metadata/seedpass/";
+        string memory baseURI = "https://api.agvprotocol.com/metadata/seedpass/"; // just for test
         seedpass.setBaseURI(baseURI);
         console.log("Set base URI:", baseURI);
 
         // 2. Grant agent role to specific addresses (to be replaced with actual addresses)
-        address agent1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
+        address agent1 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8; 
         if (!seedpass.hasRole(AGENT_MINTER_ROLE, agent1)) {
             seedpass.grantAgentRole(agent1);
             console.log(" Granted AGENT_MINTER_ROLE to:", agent1);
@@ -266,10 +266,17 @@ contract ConfigureSeedPass is Script {
         console.log("  WL Start:", wlStart);
         console.log("  WL End:", wlEnd);
 
-        // 4. Set whitelist merkle root (if you have one)
-        // bytes32 merkleRoot = 0x...; // Your actual merkle root
-        // seedpass.setWhitelistRoot(merkleRoot);
-        // console.log(" Set whitelist merkle root");
+
+        // 4. withdraw funds to treasury'
+        address treasury = seedpass.treasuryReceiver();
+        uint256 balance = address(seedpass).balance;
+        if (balance > 0) {
+            (bool success, ) = treasury.call{value: balance}("");
+            require(success, "Transfer failed");
+            console.log(" Withdrawn funds to treasury:", treasury);
+        } else {
+            console.log(" No funds to withdraw to treasury:", treasury);
+        }
 
         vm.stopBroadcast();
 
