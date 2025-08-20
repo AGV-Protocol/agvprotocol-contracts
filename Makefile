@@ -57,28 +57,42 @@ deploy-sp-local: ## Deploy Seedpass to local network (Anvil)
 	@mkdir -p deployments
 	forge script script/SeedPass.s.sol:DeploySeedPass --rpc-url local --broadcast -vvvv
 
-deploy-sp-mumbai: ## Deploy Seedpass to Mumbai testnet
-	@echo "$(CYAN)Deploying SeedPass to Mumbai...$(RESET)"
-	forge script script/SeedPass.s.sol:DeploySeedPass --rpc-url mumbai --broadcast --verify -vvvv
-
 deploy-sp-sepolia: ## Deploy SeedPass to Sepolia testnet
 	@echo "$(CYAN)Deploying SeedPass to Sepolia...$(RESET)"
+	@mkdir -p deployments
 	forge script script/SeedPass.s.sol:DeploySeedPass --rpc-url sepolia --broadcast --verify -vvvv
 
 deploy-sp-polygon: ## Deploy SeedPass to Polygon mainnet
 	@echo "$(YELLOW)⚠️  WARNING: Deploying SeedPass to POLYGON MAINNET! ⚠️$(RESET)"
+	@mkdir -p deployments
 	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
 		forge script script/SeedPass.s.sol:DeploySeedPass --rpc-url polygon --broadcast --verify -vvvv; \
 	fi
 
-##@ Upgrading
+##@ Deployment of TreePass
+
+deploy-tp-local: ## Deploy TreePass to local network (Anvil)
+	@echo "$(CYAN)Deploying TreePass to local network...$(RESET)"
+	@mkdir -p deployments
+	forge script script/TreePass.s.sol:DeployTreePass --rpc-url local --broadcast -vvvv
+
+deploy-tp-sepolia: ## Deploy TreePass to Sepolia testnet
+	@echo "$(CYAN)Deploying TreePass to Sepolia...$(RESET)"
+	@mkdir -p deployments
+	forge script script/TreePass.s.sol:DeployTreePass --rpc-url sepolia --broadcast --verify -vvvv
+
+deploy-tp-polygon: ## Deploy TreePass to Polygon mainnet
+	@echo "$(YELLOW)⚠️  WARNING: Deploying TreePass to POLYGON MAINNET! ⚠️$(RESET)"
+	@mkdir -p deployments
+	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
+		forge script script/TreePass.s.sol:DeployTreePass --rpc-url polygon --broadcast --verify -vvvv; \
+	fi
+
+
+##@ Upgrading SeedPass
 upgrade-sp-local: ## Upgrade seedpass contract on local network
 	@echo "$(CYAN)Upgrading SeedPass on local network...$(RESET)"
 	forge script script/SeedPass.s.sol:UpgradeSeedPass --rpc-url local --broadcast -vvvv
-
-upgrade-sp-mumbai: ## Upgrade seedpass contract on Mumbai
-	@echo "$(CYAN)Upgrading SeedPass on Mumbai...$(RESET)"
-	forge script script/SeedPass.s.sol:UpgradeSeedPass --rpc-url mumbai --broadcast -vvvv
 
 upgrade-sp-sepolia: ## Upgrade contract on Sepolia
 	@echo "$(CYAN)Upgrading SeedPass on Sepolia...$(RESET)"
@@ -90,11 +104,25 @@ upgrade-sp-polygon: ## Upgrade contract on Polygon
 		forge script script/SeedPass.s.sol:UpgradeSeedPass --rpc-url polygon --broadcast -vvvv; \
 	fi
 
-##@ Configuration
-configure-sp-mumbai: ## Configure seedPass contract on Mumbai
-	@echo "$(CYAN)Configuring SeedPass on Mumbai...$(RESET)"
-	forge script script/SeedPass.s.sol:ConfigureSeedPass --rpc-url mumbai --broadcast -vvvv
 
+##@ Upgrading TreePass
+upgrade-tp-local: ## Upgrade treepass contract on local network
+	@echo "$(CYAN)Upgrading TreePass on local network...$(RESET)"
+	forge script script/TreePass.s.sol:UpgradeTreePass --rpc-url local --broadcast -vvvv
+
+upgrade-tp-sepolia: ## Upgrade contract on Sepolia
+	@echo "$(CYAN)Upgrading TreePass on Sepolia...$(RESET)"
+	forge script script/TreePass.s.sol:UpgradeTreePass --rpc-url sepolia --broadcast -vvvv
+
+upgrade-tp-polygon: ## Upgrade contract on Polygon
+	@echo "$(YELLOW)⚠️  WARNING: Upgrading SeedPass contract on POLYGON MAINNET! ⚠️$(RESET)"
+	@read -p "Are you sure? [y/N] " -n 1 -r; echo; if [[ $REPLY =~ ^[Yy]$ ]]; then \
+		forge script script/SeedPass.s.sol:UpgradeSeedPass --rpc-url polygon --broadcast -vvvv; \
+	fi
+
+
+
+##@ Configuration SeedPass
 configure-sp-sepolia: ## Configure seedPass contract on Sepolia
 	@echo "$(CYAN)Configuring SeedPass on Sepolia...$(RESET)"
 	forge script script/SeedPass.s.sol:ConfigureSeedPass --rpc-url sepolia --broadcast -vvvv
@@ -103,10 +131,19 @@ configure-sp-polygon: ## Configure seedPass contract on Polygon
 	@echo "$(CYAN)Configuring SeedPass on Polygon...$(RESET)"
 	forge script script/SeedPass.s.sol:ConfigureSeedPass --rpc-url polygon --broadcast -vvvv
 
-##@ Verification
-verify-sp-mumbai: ## Verify SeedPass contract on Mumbai
-	@echo "$(CYAN)Verifying SeedPass contract on Mumbai...$(RESET)"
-	forge verify-contract $(PROXY_ADDRESS) contracts/nft/SeedPass.sol:SeedPass --chain mumbai
+
+##@ Configuration TreePass
+configure-tp-sepolia: ## Configure TreePass contract on Sepolia
+	@echo "$(CYAN)Configuring TreePass on Sepolia...$(RESET)"
+	forge script script/TreePass.s.sol:ConfigureTreePass --rpc-url sepolia --broadcast -vvvv
+
+configure-tp-polygon: ## Configure TreePass contract on Polygon
+	@echo "$(CYAN)Configuring TreePass on Polygon...$(RESET)"
+	forge script script/TreePass.s.sol:ConfigureTreePass --rpc-url polygon --broadcast -vvvv
+
+	
+
+##@ Verification seedpass
 
 verify-sp-sepolia: ## Verify Seedpass contract on Sepolia
 	@echo "$(CYAN)Verifying Seedpass contract on Sepolia...$(RESET)"
@@ -116,18 +153,24 @@ verify-sp-polygon: ## Verify Seedpass contract on Polygon
 	@echo "$(CYAN)Verifying Seedpass contract on Polygon...$(RESET)"
 	forge verify-contract $(PROXY_ADDRESS) contracts/nft/SeedPass.sol:SeedPass --chain polygon
 
+
+##@ Verification treepass
+
+verify-tp-sepolia: ## Verify Treepass contract on Sepolia
+	@echo "$(CYAN)Verifying Treepass contract on Sepolia...$(RESET)"
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/TreePass.sol:SeedPass --chain sepolia
+
+verify-tp-polygon: ## Verify Treepass contract on Polygon
+	@echo "$(CYAN)Verifying Treepass contract on Polygon...$(RESET)"
+	forge verify-contract $(PROXY_ADDRESS) contracts/nft/TreePass.sol:SeedPass --chain polygon
+
+
+
+
 ##@ Utilities
 node: ## Start local Anvil node with Polygon fork
 	@echo "$(CYAN)Starting local Anvil node with Polygon fork...$(RESET)"
 	anvil --fork-url $(POLYGON_RPC_URL) --fork-block-number 50000000 --chain-id 1337
-
-node-mumbai: ## Start local Anvil node with Mumbai fork
-	@echo "$(CYAN)Starting local Anvil node with Mumbai fork...$(RESET)"
-	anvil --fork-url $(MUMBAI_RPC_URL) --chain-id 1337
-
-console-mumbai: ## Open Forge console on Mumbai
-	@echo "$(CYAN)Opening Forge console on Mumbai...$(RESET)"
-	forge console --rpc-url mumbai
 
 console-sepolia: ## Open Forge console on Sepolia
 	@echo "$(CYAN)Opening Forge console on Sepolia...$(RESET)"
