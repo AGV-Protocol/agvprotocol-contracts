@@ -86,7 +86,6 @@ contract DeploySeedPass is Script {
 
         vm.stopBroadcast();
 
-        // Test the deployed contract
         testDeployedContract(address(proxy));
 
         // Log important addresses
