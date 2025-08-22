@@ -111,6 +111,11 @@ contract TreePass is
         _setDefaultRoyalty(treasury, ROYALTY_BPS);
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     // --- Public Functions ---
     function mint(uint256 amount, bytes32[] calldata merkleProof) external nonReentrant whenNotPaused {
         require(config.saleActive, "SaleNotActive");
